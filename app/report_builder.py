@@ -1,6 +1,7 @@
 import os
 from typing import List, Optional
 
+import httpx
 from openai import OpenAI, OpenAIError
 
 from .recon import ReconResult
@@ -23,7 +24,8 @@ def build_llm_report(result: ReconResult, model: str = "gpt-4o-mini") -> str:
     if not api_key:
         raise LLMUnavailable("OPENAI_API_KEY is not set")
 
-    client = OpenAI(api_key=api_key)
+    http_client = httpx.Client()
+    client = OpenAI(api_key=api_key, http_client=http_client)
 
     status_counts = result.status_counts.to_dict(orient="records")
     exceptions_by_gl = result.exceptions_by_gl.head(10).to_dict(orient="records")
