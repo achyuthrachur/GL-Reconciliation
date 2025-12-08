@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from .config import ReconParams
 from .excel_report import build_excel_report
 from .recon import run_reconciliation
-from .report_builder import LLMUnavailable, build_llm_report
+from .report_builder import LLMUnavailable, build_report
 
 load_dotenv()
 
@@ -81,7 +81,7 @@ async def reconcile(
     report_error = None
     if generate_report:
         try:
-            report_markdown = build_llm_report(result)
+            report_markdown = build_report(result)
         except LLMUnavailable as exc:
             report_error = str(exc)
 

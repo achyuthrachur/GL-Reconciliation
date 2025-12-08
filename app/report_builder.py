@@ -1,31 +1,92 @@
 import os
-from typing import List, Optional
+from typing import Dict, List
 
 import httpx
+import pandas as pd
 from openai import OpenAI, OpenAIError
 
 from .recon import ReconResult
 
 
 class LLMUnavailable(Exception):
-    pass
+    """Raised when an LLM call cannot be fulfilled (missing key, quota, bad response)."""
 
 
 def _fmt_table(rows: List[List[str]], headers: List[str]) -> str:
     if not rows:
         return "None"
     col_widths = [max(len(str(h)), *(len(str(r[i])) for r in rows)) for i, h in enumerate(headers)]
-    def fmt_row(r): return " | ".join(str(r[i]).ljust(col_widths[i]) for i in range(len(headers)))
+
+    def fmt_row(r):  # noqa: ANN001
+        return " | ".join(str(r[i]).ljust(col_widths[i]) for i in range(len(headers)))
+
     return "\n".join([fmt_row(headers), "-|-".join("-" * w for w in col_widths), *[fmt_row(r) for r in rows]])
 
 
-def build_llm_report(result: ReconResult, model: str = "gpt-4o-mini") -> str:
+def _summary_payload(result: ReconResult) -> Dict:
+    """Structured JSON for downstream LLMs (OpenAI/Vellum)."""
+    summary = result.jsonable_summary(sample_rows=25)
+    summary["exceptions_by_gl"] = result.exceptions_by_gl.head(10).to_dict(orient="records")
+    summary["exceptions_by_src"] = result.exceptions_by_src.head(10).to_dict(orient="records")
+    summary["mismatched_amount_sample"] = (
+        result.mismatched_amount.head(10).replace({pd.NA: None}).to_dict(orient="records")
+        if not result.mismatched_amount.empty
+        else []
+    )
+    summary["missing_map_by_source"] = (
+        result.missing_map_by_source.head(10).replace({pd.NA: None}).to_dict(orient="records")
+        if not result.missing_map_by_source.empty
+        else []
+    )
+    return summary
+
+
+def build_report(result: ReconResult) -> str:
+    """Entry point. Uses Vellum if LLM_PROVIDER=VELLUM, else OpenAI."""
+    provider = os.environ.get("LLM_PROVIDER", "openai").lower()
+    if provider == "vellum":
+        return build_vellum_report(result)
+    return build_openai_report(result)
+
+
+def build_vellum_report(result: ReconResult) -> str:
+    api_key = os.environ.get("VELLUM_API_KEY")
+    deployment_id = os.environ.get("VELLUM_DEPLOYMENT_ID")
+    base_url = os.environ.get("VELLUM_BASE_URL", "https://api.vellum.ai")
+    if not api_key:
+        raise LLMUnavailable("VELLUM_API_KEY is not set")
+    if not deployment_id:
+        raise LLMUnavailable("VELLUM_DEPLOYMENT_ID is not set")
+
+    payload = {"inputs": {"analysis_json": _summary_payload(result)}}
+    url = f"{base_url.rstrip('/')}/v1/deployments/{deployment_id}/execute"
+    try:
+        resp = httpx.post(url, headers={"Authorization": f"Bearer {api_key}"}, json=payload, timeout=30)
+    except httpx.HTTPError as exc:  # noqa: BLE001
+        raise LLMUnavailable(f"Vellum call failed: {exc}")
+
+    if resp.status_code >= 300:
+        raise LLMUnavailable(f"Vellum call failed ({resp.status_code}): {resp.text}")
+
+    data = resp.json()
+    text = None
+    if isinstance(data, dict):
+        outputs = data.get("outputs") or data.get("data")
+        if isinstance(outputs, list) and outputs:
+            text = outputs[0].get("value") or outputs[0].get("text")
+        elif isinstance(outputs, dict):
+            inner = outputs.get("outputs")
+            if isinstance(inner, list) and inner:
+                text = inner[0].get("value") or inner[0].get("text")
+    return text or resp.text
+
+
+def build_openai_report(result: ReconResult, model: str = "gpt-4o-mini") -> str:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise LLMUnavailable("OPENAI_API_KEY is not set")
 
-    http_client = httpx.Client()
-    client = OpenAI(api_key=api_key, http_client=http_client)
+    client = OpenAI(api_key=api_key, http_client=httpx.Client())
 
     status_counts = result.status_counts.to_dict(orient="records")
     exceptions_by_gl = result.exceptions_by_gl.head(10).to_dict(orient="records")
@@ -33,10 +94,7 @@ def build_llm_report(result: ReconResult, model: str = "gpt-4o-mini") -> str:
     mismatches = result.mismatched_amount.head(10)
     missing_map = result.missing_map_by_source.head(10).to_dict(orient="records")
 
-    status_table = _fmt_table(
-        [[s["status"], s["count"]] for s in status_counts],
-        ["Status", "Count"],
-    )
+    status_table = _fmt_table([[s["status"], s["count"]] for s in status_counts], ["Status", "Count"])
     gl_table = _fmt_table([[g.get("gl_bucket", ""), g.get("count", 0)] for g in exceptions_by_gl], ["GL", "Exceptions"])
     src_table = _fmt_table([[s.get("source_bucket", ""), s.get("count", 0)] for s in exceptions_by_src], ["Source", "Exceptions"])
     mismatch_rows = []
