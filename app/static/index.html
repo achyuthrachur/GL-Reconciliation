@@ -215,10 +215,47 @@
       border-radius: 50%;
       box-shadow: 0 0 0 4px rgba(56,189,248,0.16);
     }
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .canvas-wrap {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    canvas {
+      background: transparent;
+      width: 100% !important;
+      height: auto !important;
+    }
+    .table-card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .table-card table {
+      margin-top: 6px;
+    }
+    .table-card tbody {
+      max-height: 220px;
+      overflow-y: auto;
+      display: block;
+    }
+    .table-card thead, .table-card tbody tr {
+      display: table;
+      width: 100%;
+      table-layout: fixed;
+    }
     @media (max-width: 640px) {
       header, main { padding: 18px 16px; }
       button { width: 100%; }
       .layout { grid-template-columns: 1fr; }
+      .analysis-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -342,23 +379,25 @@
         </div>
       </div>
       <div class="divider"></div>
-      <div style="display:grid; grid-template-columns: 1.2fr 1fr; gap:14px; align-items:flex-start;">
+      <div class="analysis-grid">
         <div>
-          <canvas id="status-chart" height="140"></canvas>
+          <div class="canvas-wrap">
+            <canvas id="status-chart" height="180"></canvas>
+          </div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:14px;">
-            <canvas id="gl-chart" height="120"></canvas>
-            <canvas id="src-chart" height="120"></canvas>
+            <div class="canvas-wrap"><canvas id="gl-chart" height="140"></canvas></div>
+            <div class="canvas-wrap"><canvas id="src-chart" height="140"></canvas></div>
           </div>
         </div>
         <div style="display:grid; gap:12px;">
-          <div>
+          <div class="table-card">
             <div class="section-title"><span></span>Top mismatches</div>
             <table class="status-table" id="mismatch-table">
               <thead><tr><th>Doc ID</th><th>Amount Δ</th><th>Days Δ</th><th>GL</th><th>Source</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
-          <div>
+          <div class="table-card">
             <div class="section-title"><span></span>Missing mappings (by source)</div>
             <table class="status-table" id="missing-map-table">
               <thead><tr><th>Source account</th><th>Count</th></tr></thead>
@@ -446,9 +485,11 @@
     }
 
     function renderCharts(summary) {
-      const ctxStatus = document.getElementById("status-chart").getContext("2d");
-      const ctxGl = document.getElementById("gl-chart").getContext("2d");
-      const ctxSrc = document.getElementById("src-chart").getContext("2d");
+      if (typeof Chart === "undefined") return;
+      const ctxStatus = document.getElementById("status-chart")?.getContext("2d");
+      const ctxGl = document.getElementById("gl-chart")?.getContext("2d");
+      const ctxSrc = document.getElementById("src-chart")?.getContext("2d");
+      if (!ctxStatus || !ctxGl || !ctxSrc) return;
 
       destroyChart(statusChart);
       destroyChart(glChart);
@@ -462,10 +503,11 @@
           datasets: [{
             label: "Counts",
             data: statusData.map(d => d.count),
-            backgroundColor: "#38bdf8"
+            backgroundColor: "#38bdf8",
+            borderRadius: 6
           }]
         },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } } }
       });
 
       const glData = (summary.exceptions_by_gl || []).slice(0, 8);
@@ -473,9 +515,9 @@
         type: "bar",
         data: {
           labels: glData.map(d => d.gl_bucket || d.gl_account || d.source_bucket || ""),
-          datasets: [{ label: "Exceptions by GL", data: glData.map(d => d.count), backgroundColor: "#f97316" }]
+          datasets: [{ label: "Exceptions by GL", data: glData.map(d => d.count), backgroundColor: "#f97316", borderRadius: 6 }]
         },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } } }
       });
 
       const srcData = (summary.exceptions_by_src || []).slice(0, 8);
@@ -483,9 +525,9 @@
         type: "bar",
         data: {
           labels: srcData.map(d => d.source_bucket || d.source_account || ""),
-          datasets: [{ label: "Exceptions by Source", data: srcData.map(d => d.count), backgroundColor: "#22c55e" }]
+          datasets: [{ label: "Exceptions by Source", data: srcData.map(d => d.count), backgroundColor: "#22c55e", borderRadius: 6 }]
         },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } } }
       });
     }
 
