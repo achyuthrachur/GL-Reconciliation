@@ -38,7 +38,22 @@ def _summary_payload(result: ReconResult) -> Dict:
         if not result.missing_map_by_source.empty
         else []
     )
-    return summary
+    return _sanitize(summary)
+
+
+def _sanitize(obj):
+    """Recursively make data JSON-serializable (timestamps -> iso, NaN -> None)."""
+    if isinstance(obj, pd.Timestamp):
+        return obj.isoformat()
+    if isinstance(obj, float) and pd.isna(obj):
+        return None
+    if obj is pd.NA:
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
+    return obj
 
 
 def build_report(result: ReconResult) -> str:
