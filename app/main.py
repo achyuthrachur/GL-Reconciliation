@@ -45,8 +45,8 @@ async def reconcile(
     gl_file: UploadFile = File(..., description="GL file (xlsx or csv)"),
     src_file: UploadFile = File(..., description="Subledger/Source file (xlsx or csv)"),
     mapping_file: UploadFile = File(..., description="Mapping matrix (xlsx or csv)"),
-    amount_tol: Optional[float] = Form(None),
-    date_tol: Optional[int] = Form(None),
+    amount_tol: Optional[str] = Form(None),
+    date_tol: Optional[str] = Form(None),
     date_from: Optional[str] = Form(None),
     date_to: Optional[str] = Form(None),
 ):
@@ -54,9 +54,12 @@ async def reconcile(
     src_bytes = await src_file.read()
     map_bytes = await mapping_file.read()
 
-    params = ReconParams.from_strings(
-        amount_tol=amount_tol, date_tol=date_tol, date_from=date_from, date_to=date_to
-    )
+    try:
+        params = ReconParams.from_strings(
+            amount_tol=amount_tol, date_tol=date_tol, date_from=date_from, date_to=date_to
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Invalid parameters: {exc}")
 
     result = run_reconciliation(
         gl_bytes=gl_bytes,

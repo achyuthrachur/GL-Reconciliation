@@ -256,6 +256,10 @@
     </section>
   </main>
   <script>
+    const API_BASE = window.location.origin.startsWith("file:")
+      ? "http://localhost:8000"
+      : window.location.origin;
+
     const form = document.getElementById("recon-form");
     const runBtn = document.getElementById("run-btn");
     const statusChip = document.getElementById("status-chip");
@@ -327,7 +331,7 @@
       downloadLink.style.display = "none";
       const formData = new FormData(form);
       try {
-        const res = await fetch("/api/reconcile", {
+        const res = await fetch(`${API_BASE}/api/reconcile`, {
           method: "POST",
           body: formData
         });
@@ -340,7 +344,7 @@
         renderStatusTable(summary.status_counts);
         renderIssues(summary.issues, summary.data_quality_flags);
         if (data.download_url) {
-          downloadLink.href = data.download_url;
+          downloadLink.href = `${API_BASE}${data.download_url}`;
           downloadLink.style.display = "inline-block";
           downloadLink.textContent = "Download Excel";
         }
@@ -348,7 +352,8 @@
       } catch (err) {
         console.error(err);
         setStatus("Error", "red");
-        renderIssues([err.message]);
+        const hint = `Did you start the API? (${API_BASE}/api/reconcile)`;
+        renderIssues([err.message, hint]);
       } finally {
         runBtn.disabled = false;
       }
