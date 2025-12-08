@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
+import numpy as np
 
 from .config import ReconParams
 
@@ -68,11 +69,20 @@ class ReconResult:
         def frame_to_records(df: pd.DataFrame, n: int) -> List[Dict]:
             if df.empty:
                 return []
-            return df.head(n).to_dict(orient="records")
+            cleaned = df.head(n).replace({np.nan: None, pd.NA: None})
+            return cleaned.to_dict(orient="records")
 
+        def clean_overview(ov: Dict[str, float]) -> Dict[str, Optional[float]]:
+            return {k: (v if v is not None and not pd.isna(v) else 0) for k, v in ov.items()}
+
+        status_counts_records = (
+            self.status_counts.where(pd.notna(self.status_counts), None).to_dict(orient="records")
+            if not self.status_counts.empty
+            else []
+        )
         return {
-            "overview": self.overview,
-            "status_counts": self.status_counts.to_dict(orient="records"),
+            "overview": clean_overview(self.overview),
+            "status_counts": status_counts_records,
             "issues": self.issues,
             "data_quality_flags": self.data_quality_flags,
             "sample": frame_to_records(self.model, sample_rows),
