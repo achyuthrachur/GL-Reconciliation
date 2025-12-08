@@ -6,55 +6,63 @@
   <title>GL Reconciliation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: linear-gradient(135deg, #0b1224 0%, #111c3d 40%, #0f3b51 100%);
+      --bg: radial-gradient(1200px at 10% 20%, rgba(15,118,110,0.16), transparent 50%), radial-gradient(900px at 80% 0%, rgba(14,165,233,0.2), transparent 40%), #0b1021;
       --panel: rgba(255,255,255,0.06);
       --panel-strong: rgba(255,255,255,0.12);
-      --accent: #22d3ee;
-      --accent-2: #4f46e5;
+      --accent: #38bdf8;
+      --accent-2: #06b6d4;
+      --accent-3: #fbbf24;
       --text: #e5e7eb;
-      --muted: #94a3b8;
+      --muted: #9ca3af;
       --danger: #f87171;
       --success: #22c55e;
-      --warning: #facc15;
+      --warning: #f59e0b;
+      --stroke: rgba(255,255,255,0.12);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      font-family: "Manrope", "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 20px;
+      overflow-x: hidden;
     }
     header {
-      padding: 32px 24px 12px;
+      padding: 32px 26px 10px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
     }
     h1 {
       margin: 0;
-      font-size: 32px;
+      font-size: 30px;
       letter-spacing: -0.5px;
     }
     p.lede {
       margin: 6px 0 0;
-      color: var(--muted);
-      max-width: 820px;
+      color: #cbd5e1;
+      max-width: 900px;
+      line-height: 1.5;
     }
     main {
-      padding: 10px 24px 40px;
+      padding: 10px 26px 36px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 18px;
     }
     .card {
       background: var(--panel);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px;
-      padding: 18px 20px;
-      box-shadow: 0 30px 70px rgba(0,0,0,0.24);
+      border: 1px solid var(--stroke);
+      border-radius: 16px;
+      padding: 18px 22px;
+      box-shadow: 0 25px 70px rgba(0,0,0,0.28);
       backdrop-filter: blur(10px);
     }
     .card strong { color: #fff; }
@@ -66,10 +74,10 @@
     }
     input[type="file"], input[type="number"], input[type="date"] {
       width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
+      padding: 12px 12px;
+      border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.07);
       color: #fff;
       font-size: 14px;
     }
@@ -88,8 +96,8 @@
       cursor: pointer;
       font-size: 15px;
       width: 100%;
-      transition: transform 0.08s ease, box-shadow 0.08s ease;
-      box-shadow: 0 10px 30px rgba(34,211,238,0.3);
+      transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.12s ease;
+      box-shadow: 0 12px 36px rgba(56,189,248,0.25);
     }
     button:disabled {
       opacity: 0.6;
@@ -97,19 +105,20 @@
       box-shadow: none;
     }
     button:hover:not(:disabled) { transform: translateY(-1px); }
+    button:active:not(:disabled) { transform: translateY(0); filter: brightness(0.98); }
     .status-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
     }
     .pill {
       background: var(--panel-strong);
       border: 1px solid rgba(255,255,255,0.08);
-      padding: 12px;
-      border-radius: 12px;
+      padding: 12px 12px 10px;
+      border-radius: 14px;
     }
     .pill .label { color: var(--muted); font-size: 12px; }
-    .pill .value { font-size: 18px; margin-top: 4px; }
+    .pill .value { font-size: 18px; margin-top: 4px; font-weight: 700; }
     .status-table {
       width: 100%;
       border-collapse: collapse;
@@ -126,7 +135,7 @@
       border-radius: 999px;
       font-size: 12px;
       display: inline-block;
-      font-weight: 600;
+      font-weight: 700;
     }
     .chip.green { background: rgba(34,197,94,0.18); color: #6ee7b7; }
     .chip.yellow { background: rgba(250,204,21,0.18); color: #facc15; }
@@ -135,8 +144,8 @@
     .muted { color: var(--muted); }
     .issues { margin: 0; padding-left: 18px; color: #fbbf24; }
     .flex-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .divider { height: 1px; background: rgba(255,255,255,0.08); margin: 14px 0; }
-    .tagline { font-size: 13px; color: var(--muted); }
+    .divider { height: 1px; background: rgba(255,255,255,0.08); margin: 14px 0; border-radius: 999px; }
+    .tagline { font-size: 13px; color: var(--muted); line-height: 1.4; }
     .download {
       background: linear-gradient(120deg, #6ee7b7, #22c55e);
       box-shadow: 0 10px 30px rgba(34,197,94,0.24);
@@ -147,113 +156,186 @@
       text-decoration: none;
       font-weight: 600;
     }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(56,189,248,0.12);
+      color: #7dd3fc;
+      border: 1px solid rgba(125,211,252,0.3);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .steps {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .step {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .tag-pill {
+      background: rgba(15,118,110,0.18);
+      color: #5eead4;
+      border: 1px solid rgba(94,234,212,0.35);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.1px;
+    }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .section-title span {
+      background: var(--accent);
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      box-shadow: 0 0 0 4px rgba(56,189,248,0.16);
+    }
     @media (max-width: 640px) {
       header, main { padding: 18px 16px; }
       button { width: 100%; }
+      .layout { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>GL Reconciliation Workspace</h1>
-    <p class="lede">Upload GL (A), Subledger (B), and the mapping matrix to reconcile, preview key stats, and download a formatted Excel with dashboard and exception pivots.</p>
+    <div>
+      <div class="badge">Live Reconciliation</div>
+      <h1>GL Reconciliation Workspace</h1>
+      <p class="lede">A client-ready console to ingest GL (A), Subledger (B), and mapping, reconcile with tolerance rules, surface KPIs instantly, and export a polished Excel with dashboard and exceptions pivots.</p>
+      <div class="hero-actions">
+        <div class="tag-pill">In-memory • No external calls</div>
+        <div class="tag-pill">Excel dashboard ready</div>
+      </div>
+    </div>
   </header>
-  <main class="grid">
-    <section class="card">
-      <div class="flex-between">
-        <div>
-          <strong>Input Files</strong>
-          <div class="tagline">XLSX or CSV. We keep everything in-memory; no external calls.</div>
-        </div>
-        <div class="chip green" id="status-chip">Ready</div>
-      </div>
-      <div class="divider"></div>
-      <form id="recon-form">
-        <label for="gl-file">GL file (File A)</label>
-        <input type="file" id="gl-file" name="gl_file" accept=".csv,.xlsx" required>
-        <label for="src-file">Subledger / Source file (File B)</label>
-        <input type="file" id="src-file" name="src_file" accept=".csv,.xlsx" required>
-        <label for="map-file">Mapping matrix</label>
-        <input type="file" id="map-file" name="mapping_file" accept=".csv,.xlsx" required>
-        <div class="row" style="margin-top:12px;">
+  <main>
+    <div class="layout">
+      <section class="card">
+        <div class="flex-between">
           <div>
-            <label for="amount-tol">Amount tolerance (AMOUNT_TOL)</label>
-            <input type="number" step="0.01" id="amount-tol" name="amount_tol" placeholder="1.00" />
+            <div class="section-title"><span></span>Input Files</div>
+            <div class="tagline">Drop XLSX/CSV — everything stays in-memory, nothing leaves the session.</div>
           </div>
-          <div>
-            <label for="date-tol">Date tolerance in days (DATE_TOL)</label>
-            <input type="number" step="1" id="date-tol" name="date_tol" placeholder="2" />
-          </div>
+          <div class="chip green" id="status-chip">Ready</div>
         </div>
-        <div class="row" style="margin-top:12px;">
-          <div>
-            <label for="date-from">Date from (YYYY-MM-DD)</label>
-            <input type="date" id="date-from" name="date_from" />
+        <div class="divider"></div>
+        <form id="recon-form">
+          <label for="gl-file">GL file (File A)</label>
+          <input type="file" id="gl-file" name="gl_file" accept=".csv,.xlsx" required>
+          <label for="src-file">Subledger / Source file (File B)</label>
+          <input type="file" id="src-file" name="src_file" accept=".csv,.xlsx" required>
+          <label for="map-file">Mapping matrix</label>
+          <input type="file" id="map-file" name="mapping_file" accept=".csv,.xlsx" required>
+          <div class="row" style="margin-top:12px;">
+            <div>
+              <label for="amount-tol">Amount tolerance (AMOUNT_TOL)</label>
+              <input type="number" step="0.01" id="amount-tol" name="amount_tol" placeholder="1.00" />
+            </div>
+            <div>
+              <label for="date-tol">Date tolerance in days (DATE_TOL)</label>
+              <input type="number" step="1" id="date-tol" name="date_tol" placeholder="2" />
+            </div>
           </div>
-          <div>
-            <label for="date-to">Date to (YYYY-MM-DD)</label>
-            <input type="date" id="date-to" name="date_to" />
+          <div class="row" style="margin-top:12px;">
+            <div>
+              <label for="date-from">Date from (YYYY-MM-DD)</label>
+              <input type="date" id="date-from" name="date_from" />
+            </div>
+            <div>
+              <label for="date-to">Date to (YYYY-MM-DD)</label>
+              <input type="date" id="date-to" name="date_to" />
+            </div>
           </div>
-        </div>
-        <div style="margin-top:16px;">
-          <button type="submit" id="run-btn">Run reconciliation</button>
-        </div>
-      </form>
-    </section>
+          <div style="margin-top:18px;">
+            <button type="submit" id="run-btn">Run reconciliation</button>
+          </div>
+          <div class="steps">
+            <div class="step">1. Upload GL / Subledger / Mapping</div>
+            <div class="step">2. Set tolerances or use defaults</div>
+            <div class="step">3. Review KPIs and download Excel</div>
+          </div>
+        </form>
+      </section>
 
-    <section class="card">
-      <div class="flex-between">
+      <section class="card">
+        <div class="flex-between">
+          <div>
+            <div class="section-title"><span></span>Snapshot</div>
+            <div class="tagline">Auto-refresh after each run. Download-ready Excel is one click away.</div>
+          </div>
+          <a id="download-link" class="download-link" href="#" style="display:none;">Download Excel</a>
+        </div>
+        <div class="divider"></div>
+        <div class="status-grid" id="kpi-grid">
+          <div class="pill">
+            <div class="label">Total rows</div>
+            <div class="value" id="kpi-total">-</div>
+          </div>
+          <div class="pill">
+            <div class="label">Exact matches</div>
+            <div class="value" id="kpi-exact">-</div>
+          </div>
+          <div class="pill">
+            <div class="label">Near matches</div>
+            <div class="value" id="kpi-near">-</div>
+          </div>
+          <div class="pill">
+            <div class="label">Mismatches</div>
+            <div class="value" id="kpi-mismatch">-</div>
+          </div>
+          <div class="pill">
+            <div class="label">Unmatched A</div>
+            <div class="value" id="kpi-unmatched-a">-</div>
+          </div>
+          <div class="pill">
+            <div class="label">Unmatched B</div>
+            <div class="value" id="kpi-unmatched-b">-</div>
+          </div>
+        </div>
+        <div class="divider"></div>
         <div>
-          <strong>Snapshot</strong>
-          <div class="tagline">Auto-refreshes after each run.</div>
+          <div class="section-title"><span></span>Status breakdown</div>
+          <table class="status-table" id="status-table">
+            <thead>
+              <tr><th>Status</th><th>Count</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
-        <a id="download-link" class="download-link" href="#" style="display:none;">Download Excel</a>
-      </div>
-      <div class="divider"></div>
-      <div class="status-grid" id="kpi-grid">
-        <div class="pill">
-          <div class="label">Total rows</div>
-          <div class="value" id="kpi-total">-</div>
+        <div class="divider"></div>
+        <div>
+          <div class="section-title"><span></span>Issues & data quality</div>
+          <ul class="issues" id="issues-list">
+            <li class="muted">None yet.</li>
+          </ul>
         </div>
-        <div class="pill">
-          <div class="label">Exact matches</div>
-          <div class="value" id="kpi-exact">-</div>
-        </div>
-        <div class="pill">
-          <div class="label">Near matches</div>
-          <div class="value" id="kpi-near">-</div>
-        </div>
-        <div class="pill">
-          <div class="label">Mismatches</div>
-          <div class="value" id="kpi-mismatch">-</div>
-        </div>
-        <div class="pill">
-          <div class="label">Unmatched A</div>
-          <div class="value" id="kpi-unmatched-a">-</div>
-        </div>
-        <div class="pill">
-          <div class="label">Unmatched B</div>
-          <div class="value" id="kpi-unmatched-b">-</div>
-        </div>
-      </div>
-      <div class="divider"></div>
-      <div>
-        <strong>Status breakdown</strong>
-        <table class="status-table" id="status-table">
-          <thead>
-            <tr><th>Status</th><th>Count</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="divider"></div>
-      <div>
-        <strong>Issues & data quality</strong>
-        <ul class="issues" id="issues-list">
-          <li class="muted">None yet.</li>
-        </ul>
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
   <script>
     const API_BASE = window.location.origin.startsWith("file:")
