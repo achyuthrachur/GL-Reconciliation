@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --bg: radial-gradient(1200px at 10% 20%, rgba(15,118,110,0.16), transparent 50%), radial-gradient(900px at 80% 0%, rgba(14,165,233,0.2), transparent 40%), #0b1021;
@@ -227,10 +228,6 @@
       <div class="badge">Live Reconciliation</div>
       <h1>GL Reconciliation Workspace</h1>
       <p class="lede">A client-ready console to ingest GL (A), Subledger (B), and mapping, reconcile with tolerance rules, surface KPIs instantly, and export a polished Excel with dashboard and exceptions pivots.</p>
-      <div class="hero-actions">
-        <div class="tag-pill">In-memory • No external calls</div>
-        <div class="tag-pill">Excel dashboard ready</div>
-      </div>
     </div>
   </header>
   <main>
@@ -336,6 +333,41 @@
         </div>
       </section>
     </div>
+
+    <section class="card" style="margin-top:18px;">
+      <div class="flex-between">
+        <div>
+          <div class="section-title"><span></span>Analysis</div>
+          <div class="tagline">Charts and quick tables appear after a run.</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div style="display:grid; grid-template-columns: 1.2fr 1fr; gap:14px; align-items:flex-start;">
+        <div>
+          <canvas id="status-chart" height="140"></canvas>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:14px;">
+            <canvas id="gl-chart" height="120"></canvas>
+            <canvas id="src-chart" height="120"></canvas>
+          </div>
+        </div>
+        <div style="display:grid; gap:12px;">
+          <div>
+            <div class="section-title"><span></span>Top mismatches</div>
+            <table class="status-table" id="mismatch-table">
+              <thead><tr><th>Doc ID</th><th>Amount Δ</th><th>Days Δ</th><th>GL</th><th>Source</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title"><span></span>Missing mappings (by source)</div>
+            <table class="status-table" id="missing-map-table">
+              <thead><tr><th>Source account</th><th>Count</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
   <script>
     const API_BASE = window.location.origin.startsWith("file:")
@@ -406,6 +438,87 @@
       });
     }
 
+    // Chart instances
+    let statusChart, glChart, srcChart;
+
+    function destroyChart(chart) {
+      if (chart) chart.destroy();
+    }
+
+    function renderCharts(summary) {
+      const ctxStatus = document.getElementById("status-chart").getContext("2d");
+      const ctxGl = document.getElementById("gl-chart").getContext("2d");
+      const ctxSrc = document.getElementById("src-chart").getContext("2d");
+
+      destroyChart(statusChart);
+      destroyChart(glChart);
+      destroyChart(srcChart);
+
+      const statusData = summary.status_counts || [];
+      statusChart = new Chart(ctxStatus, {
+        type: "bar",
+        data: {
+          labels: statusData.map(d => d.status),
+          datasets: [{
+            label: "Counts",
+            data: statusData.map(d => d.count),
+            backgroundColor: "#38bdf8"
+          }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+      });
+
+      const glData = (summary.exceptions_by_gl || []).slice(0, 8);
+      glChart = new Chart(ctxGl, {
+        type: "bar",
+        data: {
+          labels: glData.map(d => d.gl_bucket || d.gl_account || d.source_bucket || ""),
+          datasets: [{ label: "Exceptions by GL", data: glData.map(d => d.count), backgroundColor: "#f97316" }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+      });
+
+      const srcData = (summary.exceptions_by_src || []).slice(0, 8);
+      srcChart = new Chart(ctxSrc, {
+        type: "bar",
+        data: {
+          labels: srcData.map(d => d.source_bucket || d.source_account || ""),
+          datasets: [{ label: "Exceptions by Source", data: srcData.map(d => d.count), backgroundColor: "#22c55e" }]
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+      });
+    }
+
+    function renderTable(id, rows, cols, emptyMsg="No rows") {
+      const tbody = document.querySelector(`#${id} tbody`);
+      tbody.innerHTML = "";
+      if (!rows || rows.length === 0) {
+        tbody.innerHTML = `<tr><td class="muted" colspan="${cols}">${emptyMsg}</td></tr>`;
+        return;
+      }
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = r;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderAnalysis(summary) {
+      renderCharts(summary);
+
+      const mismatches = (summary.mismatched_amount_sample || []).map(r => {
+        const amt = (r.amount_diff ?? "").toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+        const days = r.days_diff ?? "";
+        return `<td>${r.doc_id || "-"}</td><td>${amt}</td><td>${days}</td><td>${r.gl_account || "-"}</td><td>${r.source_account || "-"}</td>`;
+      });
+      renderTable("mismatch-table", mismatches, 5, "No mismatches");
+
+      const missingMap = (summary.missing_map_by_source || []).map(r => {
+        return `<td>${r.source_account || "-"}</td><td>${r.count || 0}</td>`;
+      });
+      renderTable("missing-map-table", missingMap, 2, "No missing mappings");
+    }
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       setStatus("Working...", "yellow");
@@ -425,6 +538,7 @@
         updateKPIs(summary.overview);
         renderStatusTable(summary.status_counts);
         renderIssues(summary.issues, summary.data_quality_flags);
+        renderAnalysis(summary);
         if (data.download_url) {
           downloadLink.href = `${API_BASE}${data.download_url}`;
           downloadLink.style.display = "inline-block";

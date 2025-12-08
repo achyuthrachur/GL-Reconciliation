@@ -89,6 +89,10 @@ class ReconResult:
             "unmatched_a": len(self.unmatched_a),
             "unmatched_b": len(self.unmatched_b),
             "mismatched_amount": len(self.mismatched_amount),
+            "mismatched_amount_sample": frame_to_records(self.mismatched_amount, 15),
+            "exceptions_by_gl": frame_to_records(self.exceptions_by_gl, 15),
+            "exceptions_by_src": frame_to_records(self.exceptions_by_src, 15),
+            "missing_map_by_source": frame_to_records(self.missing_map_by_source, 15),
             "params": {
                 "amount_tol": self.params.amount_tol,
                 "date_tol": self.params.date_tol,
@@ -217,13 +221,6 @@ def run_reconciliation(
 
     # Data quality check
     dq_flags: List[str] = []
-    conflict_mask = merged["mapping_ok"] & merged["status"].isin(["MAPPING_ISSUE", "MISMATCH"])
-    if conflict_mask.any():
-        sample_conflict = merged.loc[conflict_mask].head(5)
-        dq_flags.append(
-            "Mapping/Status rule conflict: mapping_ok rows found outside expected statuses "
-            f"(examples doc_id/ref_id {sample_conflict[['doc_id','ref_id']].to_dict(orient='records')})"
-        )
 
     status_counts = build_status_counts(merged["status"])
 
