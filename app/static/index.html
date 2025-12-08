@@ -1,13 +1,14 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GL Reconciliation</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GL Reconciliation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     :root {
       --bg: radial-gradient(1200px at 10% 20%, rgba(15,118,110,0.16), transparent 50%), radial-gradient(900px at 80% 0%, rgba(14,165,233,0.2), transparent 40%), #0b1021;
@@ -251,6 +252,15 @@
       width: 100%;
       table-layout: fixed;
     }
+    .report-card {
+      margin-top: 14px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .report-card h3 { margin-top: 10px; margin-bottom: 6px; }
+    .report-card p { margin: 4px 0; }
     @media (max-width: 640px) {
       header, main { padding: 18px 16px; }
       button { width: 100%; }
@@ -304,6 +314,10 @@
               <label for="date-to">Date to (YYYY-MM-DD)</label>
               <input type="date" id="date-to" name="date_to" />
             </div>
+          </div>
+          <div style="margin-top:12px; display:flex; align-items:center; gap:10px;">
+            <input type="checkbox" id="generate-report" name="generate_report" checked style="width:16px; height:16px; accent-color:#38bdf8;">
+            <label for="generate-report" style="margin:0;">Generate AI narrative report (requires API key)</label>
           </div>
           <div style="margin-top:18px;">
             <button type="submit" id="run-btn">Run reconciliation</button>
@@ -406,6 +420,13 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <section class="card" style="margin-top:18px;">
+      <div class="section-title"><span></span>AI Narrative Report</div>
+      <div class="tagline">Generated on demand when the AI toggle is enabled.</div>
+      <div class="report-card" id="report-output">No report yet.</div>
+      <div class="issues" id="report-error"></div>
     </section>
   </main>
   <script>
@@ -585,6 +606,19 @@
           downloadLink.href = `${API_BASE}${data.download_url}`;
           downloadLink.style.display = "inline-block";
           downloadLink.textContent = "Download Excel";
+        }
+        const reportContainer = document.getElementById("report-output");
+        const reportError = document.getElementById("report-error");
+        if (data.report_markdown) {
+          const html = marked.parse(data.report_markdown);
+          reportContainer.innerHTML = html;
+          reportError.textContent = "";
+        } else if (data.report_error) {
+          reportContainer.innerHTML = "";
+          reportError.textContent = data.report_error;
+        } else {
+          reportContainer.innerHTML = "";
+          reportError.textContent = "";
         }
         setStatus("Complete", "green");
       } catch (err) {

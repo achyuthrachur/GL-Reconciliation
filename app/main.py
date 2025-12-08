@@ -7,9 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from dotenv import load_dotenv
+
 from .config import ReconParams
 from .excel_report import build_excel_report
 from .recon import run_reconciliation
+from .report_builder import LLMUnavailable, build_llm_report
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
 ROOT_DIR = BASE_DIR.parent
@@ -49,6 +54,7 @@ async def reconcile(
     date_tol: Optional[str] = Form(None),
     date_from: Optional[str] = Form(None),
     date_to: Optional[str] = Form(None),
+    generate_report: Optional[bool] = Form(False),
 ):
     gl_bytes = await gl_file.read()
     src_bytes = await src_file.read()
@@ -71,6 +77,14 @@ async def reconcile(
         params=params,
     )
 
+    report_markdown = None
+    report_error = None
+    if generate_report:
+        try:
+            report_markdown = build_llm_report(result)
+        except LLMUnavailable as exc:
+            report_error = str(exc)
+
     token = uuid.uuid4().hex
     output_path = REPORTS_DIR / f"gl_recon_report_{token}.xlsx"
     build_excel_report(result, output_path)
@@ -80,6 +94,8 @@ async def reconcile(
         "report_name": output_path.name,
         "download_url": f"/api/download/{token}",
         "summary": result.jsonable_summary(),
+        "report_markdown": report_markdown,
+        "report_error": report_error,
     }
 
 
