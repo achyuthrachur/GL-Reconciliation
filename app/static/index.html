@@ -492,18 +492,18 @@
       <div id="snapshot-tab" class="analysis-grid tab-panel">
         <div>
           <div class="canvas-wrap">
-            <div class="muted" style="font-size:12px; margin-bottom:4px;">Status mix with click-to-filter & drilldown (use reset below to restore).</div>
+            <div class="muted" style="font-size:12px; margin-bottom:4px;">Status mix across all reconciled rows. Click a status to filter everything and open a detail modal; reset returns to the full population.</div>
             <canvas id="status-chart" height="180"></canvas>
             <button type="button" id="reset-status" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
           </div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:14px;">
             <div class="canvas-wrap">
-              <div class="muted" style="font-size:12px; margin-bottom:4px;">Exceptions by GL (click to drill).</div>
+              <div class="muted" style="font-size:12px; margin-bottom:4px;">Exceptions by GL account. Click a bar to drill into that GL’s rows and filter the dashboard.</div>
               <canvas id="gl-chart" height="140"></canvas>
               <button type="button" id="reset-gl" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
             </div>
             <div class="canvas-wrap">
-              <div class="muted" style="font-size:12px; margin-bottom:4px;">Exceptions by Source (click to drill).</div>
+              <div class="muted" style="font-size:12px; margin-bottom:4px;">Exceptions by Source/Subledger account. Click to drill and filter.</div>
               <canvas id="src-chart" height="140"></canvas>
               <button type="button" id="reset-src" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
             </div>
@@ -530,7 +530,7 @@
       <div id="trends-tab" class="analysis-grid tab-panel" style="display:none;">
         <div class="canvas-wrap" style="grid-column: span 2;">
           <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:6px;">
-            <span class="muted" style="font-size:12px;">Time series</span>
+            <span class="muted" style="font-size:12px;">Status counts over time (select monthly/weekly; click-and-drag pan; reset to full view).</span>
             <select id="ts-granularity" style="background:var(--panel); color:var(--text); border:1px solid var(--stroke); border-radius:8px; padding:6px 8px;">
               <option value="month">Monthly</option>
               <option value="week">Weekly</option>
@@ -540,32 +540,33 @@
           <button type="button" id="reset-time" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
         </div>
         <div class="canvas-wrap">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">Stacked status by month (heatmap-style).</div>
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">Stacked status by month — see seasonality and mix shifts at a glance.</div>
           <canvas id="heatmap-chart" height="200"></canvas>
         </div>
         <div class="canvas-wrap">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">Mismatch mix by GL (top categories).</div>
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">Mismatch mix by GL (top categories) to spot concentration.</div>
           <canvas id="category-donut" height="200"></canvas>
         </div>
       </div>
 
       <div id="yearly-tab" class="analysis-grid tab-panel" style="display:none;">
         <div class="canvas-wrap">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">Status trends by year.</div>
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">Status trends by year — stacked to show mix and volume changes.</div>
           <canvas id="year-status-chart" height="200"></canvas>
         </div>
         <div class="canvas-wrap">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">GL exceptions by year.</div>
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">GL exceptions by year — identify persistent problem accounts.</div>
           <canvas id="year-gl-chart" height="200"></canvas>
         </div>
         <div class="canvas-wrap">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">Source exceptions by year.</div>
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">Source exceptions by year — highlights recurring source-side issues.</div>
           <canvas id="year-src-chart" height="200"></canvas>
         </div>
       </div>
 
       <div id="variances-tab" class="analysis-grid tab-panel" style="display:none;">
         <div class="canvas-wrap" style="grid-column: span 2;">
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">Exceptions by source (horizontal bars) to compare volumes quickly.</div>
           <canvas id="gl-treemap" height="220"></canvas>
         </div>
         <div class="table-card">
@@ -698,9 +699,6 @@
       }
       if (filtered.exceptions_by_src && srcFilter) {
         filtered.exceptions_by_src = filtered.exceptions_by_src.filter(g => String(g.source_bucket || g.source_account || "") === String(srcFilter));
-      }
-      if (filtered.status_time_series && statusFilter) {
-        filtered.status_time_series = filtered.status_time_series.filter(r => r.status === statusFilter);
       }
       if (filtered.status_time_series_month && statusFilter) {
         filtered.status_time_series_month = filtered.status_time_series_month.filter(r => r.status === statusFilter);
@@ -848,7 +846,8 @@
               const sel = statusData[idx]?.status || null;
               filters.status = filters.status === sel ? null : sel;
               renderAnalysis(summary);
-              openDrilldown(`Status: ${sel || "All"}`, (latestAnalysisJson?.mismatched_amount_sample || []).filter(r => !sel || r.status === sel));
+              const rows = (latestAnalysisJson?.drill_rows || []).filter(r => !sel || r.status === sel);
+              openDrilldown(`Status: ${sel || "All"}`, rows);
             }
           },
           scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } }
@@ -874,7 +873,8 @@
               const sel = glData[idx]?.gl_bucket || glData[idx]?.gl_account || null;
               filters.gl = filters.gl === sel ? null : sel;
               renderAnalysis(summary);
-              openDrilldown(`GL: ${sel || "All"}`, (latestAnalysisJson?.mismatched_amount_sample || []).filter(r => !sel || String(r.gl_account||"") === String(sel)));
+              const rows = (latestAnalysisJson?.drill_rows || []).filter(r => !sel || String(r.gl_account||"") === String(sel));
+              openDrilldown(`GL: ${sel || "All"}`, rows);
             }
           },
           scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } }
@@ -900,7 +900,8 @@
               const sel = srcData[idx]?.source_bucket || srcData[idx]?.source_account || null;
               filters.src = filters.src === sel ? null : sel;
               renderAnalysis(summary);
-              openDrilldown(`Source: ${sel || "All"}`, (latestAnalysisJson?.mismatched_amount_sample || []).filter(r => !sel || String(r.source_account||"") === String(sel)));
+              const rows = (latestAnalysisJson?.drill_rows || []).filter(r => !sel || String(r.source_account||"") === String(sel));
+              openDrilldown(`Source: ${sel || "All"}`, rows);
             }
           },
           scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } }
@@ -1102,6 +1103,18 @@
       applyTheme(theme === "light" ? "dark" : "light");
     });
     applyTheme("dark");
+
+    function resetFiltersAndRerender() {
+      filters.status = null;
+      filters.gl = null;
+      filters.src = null;
+      if (latestAnalysisJson) renderAnalysis(latestAnalysisJson);
+      [statusChart, glChart, srcChart, timeChart].forEach(ch => { if (ch && ch.resetZoom) ch.resetZoom(); });
+    }
+    if (resetButtons.status) resetButtons.status.addEventListener("click", resetFiltersAndRerender);
+    if (resetButtons.gl) resetButtons.gl.addEventListener("click", resetFiltersAndRerender);
+    if (resetButtons.src) resetButtons.src.addEventListener("click", resetFiltersAndRerender);
+    if (resetButtons.time) resetButtons.time.addEventListener("click", resetFiltersAndRerender);
 
     downloadJsonBtn.addEventListener("click", (e) => {
       e.preventDefault();

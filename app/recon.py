@@ -165,6 +165,7 @@ class ReconResult:
             "exceptions_by_gl": frame_to_records(self.exceptions_by_gl, 15),
             "exceptions_by_src": frame_to_records(self.exceptions_by_src, 15),
             "missing_map_by_source": frame_to_records(self.missing_map_by_source, 15),
+            "drill_rows": frame_to_records(self.model, 500),
             "mismatch_by_gl": mismatch_by_gl,
             "mismatch_by_src": mismatch_by_src,
             "mismatch_by_counterparty": mismatch_by_counterparty,
