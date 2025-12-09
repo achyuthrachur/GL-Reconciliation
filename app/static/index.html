@@ -144,12 +144,13 @@
     }
     .pill {
       background: var(--panel-strong);
-      border: 1px solid rgba(255,255,255,0.08);
+      border: 1px solid var(--stroke);
       padding: 12px 12px 10px;
       border-radius: 14px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.06);
     }
     .pill .label { color: var(--muted); font-size: 12px; }
-    .pill .value { font-size: 18px; margin-top: 4px; font-weight: 700; }
+    .pill .value { font-size: 18px; margin-top: 4px; font-weight: 700; color: var(--text); }
     .status-table {
       width: 100%;
       border-collapse: collapse;
@@ -168,10 +169,10 @@
       display: inline-block;
       font-weight: 700;
     }
-    .chip.green { background: rgba(34,197,94,0.18); color: #6ee7b7; }
-    .chip.yellow { background: rgba(250,204,21,0.18); color: #facc15; }
-    .chip.orange { background: rgba(249,115,22,0.18); color: #fb923c; }
-    .chip.red { background: rgba(248,113,113,0.18); color: #f87171; }
+    .chip.green { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .chip.yellow { background: #fef9c3; color: #92400e; border: 1px solid #fcd34d; }
+    .chip.orange { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
+    .chip.red { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
     .muted { color: var(--muted); }
     .issues { margin: 0; padding-left: 18px; color: #fbbf24; }
     .flex-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -244,6 +245,31 @@
       line-height: 1.45;
     }
     .status-key b { color: var(--text); }
+    .inline-progress {
+      margin-top: 10px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: var(--panel-strong);
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+    .inline-progress-bar {
+      flex: 1;
+      height: 8px;
+      background: var(--panel);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--stroke);
+    }
+    .inline-progress-bar > div {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      transition: width 0.2s ease;
+    }
+    .inline-progress span { font-size: 13px; color: var(--muted); white-space: nowrap; }
     .tag-pill {
       background: rgba(15,118,110,0.18);
       color: #5eead4;
@@ -424,6 +450,10 @@
         <div style="margin-top:18px;">
           <button type="submit" id="run-btn">Run reconciliation</button>
         </div>
+          <div id="run-progress" class="inline-progress">
+            <div class="inline-progress-bar"><div id="run-progress-bar"></div></div>
+            <span id="run-progress-text">Working...</span>
+          </div>
           <div class="steps">
             <div class="step">1. Upload GL / Subledger / Mapping</div>
             <div class="step">2. Set tolerances or use defaults</div>
@@ -647,6 +677,9 @@
     const demoStatusEl = document.getElementById("demo-status");
     const loadDemoBtn = document.getElementById("load-demo-btn");
     const themeToggle = document.getElementById("theme-toggle");
+    const runProgressWrap = document.getElementById("run-progress");
+    const runProgressBar = document.getElementById("run-progress-bar");
+    const runProgressText = document.getElementById("run-progress-text");
     const resetButtons = {
       status: document.getElementById("reset-status"),
       gl: document.getElementById("reset-gl"),
@@ -830,21 +863,27 @@
     }
 
     // Chart instances and mode state
-      let statusChart, glChart, srcChart, timeChart, heatmapChart, categoryDonut, yearStatusChart, yearGlChart, yearSrcChart, varianceGlChart, varianceSrcChart;
+    let statusChart, glChart, srcChart, timeChart, heatmapChart, categoryDonut, yearStatusChart, yearGlChart, yearSrcChart, varianceGlChart, varianceSrcChart;
     let mode = "upload";
     let demoLoaded = false;
     let latestAnalysisJson = null;
-    let theme = "dark";
+    let theme = "light";
     const filters = { status: null, gl: null, src: null };
     let progressTimer = null;
 
     function startProgress() {
       const bar = document.getElementById("progress-bar");
       bar.style.width = "0%";
+      if (runProgressWrap) {
+        runProgressWrap.style.display = "flex";
+        if (runProgressBar) runProgressBar.style.width = "0%";
+        if (runProgressText) runProgressText.textContent = "Running...";
+      }
       let w = 0;
       progressTimer = setInterval(() => {
         w = Math.min(95, w + Math.random() * 10);
         bar.style.width = `${w}%`;
+        if (runProgressBar) runProgressBar.style.width = `${w}%`;
       }, 200);
     }
 
@@ -852,7 +891,12 @@
       const bar = document.getElementById("progress-bar");
       if (progressTimer) clearInterval(progressTimer);
       bar.style.width = "100%";
-      setTimeout(() => { bar.style.width = "0%"; }, 300);
+      if (runProgressBar) runProgressBar.style.width = "100%";
+      if (runProgressText) runProgressText.textContent = "Complete";
+      setTimeout(() => {
+        bar.style.width = "0%";
+        if (runProgressWrap) runProgressWrap.style.display = "none";
+      }, 500);
     }
 
     function destroyChart(chart) {
@@ -1231,7 +1275,7 @@
     themeToggle.addEventListener("click", () => {
       applyTheme(theme === "light" ? "dark" : "light");
     });
-    applyTheme("dark");
+    applyTheme("light");
 
     function resetFiltersAndRerender() {
       filters.status = null;
