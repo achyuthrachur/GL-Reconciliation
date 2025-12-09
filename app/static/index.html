@@ -24,6 +24,7 @@
       --success: #22c55e;
       --warning: #f59e0b;
       --stroke: rgba(255,255,255,0.12);
+      --shadow: 0 25px 70px rgba(0,0,0,0.28);
     }
     .light {
       --bg: #f7fafc;
@@ -37,7 +38,8 @@
       --danger: #dc2626;
       --success: #16a34a;
       --warning: #d97706;
-      --stroke: #e2e8f0;
+      --stroke: #cbd5e1;
+      --shadow: 0 20px 50px rgba(15,23,42,0.06);
     }
     * { box-sizing: border-box; }
     body {
@@ -79,7 +81,7 @@
       border: 1px solid var(--stroke);
       border-radius: 16px;
       padding: 18px 22px;
-      box-shadow: 0 25px 70px rgba(0,0,0,0.28);
+      box-shadow: var(--shadow);
       backdrop-filter: blur(10px);
     }
     .card strong { color: #fff; }
@@ -93,9 +95,9 @@
       width: 100%;
       padding: 12px 12px;
       border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: rgba(255,255,255,0.07);
-      color: #fff;
+      border: 1px solid var(--stroke);
+      background: var(--panel-strong);
+      color: var(--text);
       font-size: 14px;
     }
     .row {
@@ -351,9 +353,9 @@
             <div class="demo-status" id="demo-status" style="display:none;">Demo data loaded</div>
           </div>
           <div id="upload-section">
-          <label for="gl-file">GL file (File A)</label>
+          <label for="gl-file">Dataset A (e.g., GL)</label>
           <input type="file" id="gl-file" name="gl_file" accept=".csv,.xlsx" required>
-          <label for="src-file">Subledger / Source file (File B)</label>
+          <label for="src-file">Dataset B (e.g., Subledger)</label>
           <input type="file" id="src-file" name="src_file" accept=".csv,.xlsx" required>
           <label for="map-file">Mapping matrix</label>
           <input type="file" id="map-file" name="mapping_file" accept=".csv,.xlsx" required>
@@ -363,11 +365,11 @@
           </div>
           <div class="row" style="margin-top:12px;">
             <div>
-              <label for="amount-tol">Amount tolerance (AMOUNT_TOL)</label>
+              <label for="amount-tol">Amount tolerance</label>
               <input type="number" step="0.01" id="amount-tol" name="amount_tol" placeholder="1.00" />
             </div>
             <div>
-              <label for="date-tol">Date tolerance in days (DATE_TOL)</label>
+              <label for="date-tol">Date tolerance (days)</label>
               <input type="number" step="1" id="date-tol" name="date_tol" placeholder="2" />
             </div>
           </div>
@@ -588,6 +590,41 @@
       });
     }
 
+    function applyFilters(summary) {
+      const filtered = JSON.parse(JSON.stringify(summary));
+      const statusFilter = filters.status;
+      const glFilter = filters.gl;
+      const srcFilter = filters.src;
+
+      if (filtered.mismatched_amount_sample) {
+        filtered.mismatched_amount_sample = filtered.mismatched_amount_sample.filter(r => {
+          const statusOk = statusFilter ? r.status === statusFilter : true;
+          const glOk = glFilter ? String(r.gl_account || "") === String(glFilter) : true;
+          const srcOk = srcFilter ? String(r.source_account || "") === String(srcFilter) : true;
+          return statusOk && glOk && srcOk;
+        });
+      }
+      if (filtered.status_counts && statusFilter) {
+        filtered.status_counts = filtered.status_counts.filter(s => s.status === statusFilter);
+      }
+      if (filtered.exceptions_by_gl && glFilter) {
+        filtered.exceptions_by_gl = filtered.exceptions_by_gl.filter(g => String(g.gl_bucket || g.gl_account || "") === String(glFilter));
+      }
+      if (filtered.exceptions_by_src && srcFilter) {
+        filtered.exceptions_by_src = filtered.exceptions_by_src.filter(g => String(g.source_bucket || g.source_account || "") === String(srcFilter));
+      }
+      if (filtered.status_time_series && statusFilter) {
+        filtered.status_time_series = filtered.status_time_series.filter(r => r.status === statusFilter);
+      }
+      if (filtered.status_time_series_month && statusFilter) {
+        filtered.status_time_series_month = filtered.status_time_series_month.filter(r => r.status === statusFilter);
+      }
+      if (filtered.status_time_series_week && statusFilter) {
+        filtered.status_time_series_week = filtered.status_time_series_week.filter(r => r.status === statusFilter);
+      }
+      return filtered;
+    }
+
     function renderFilters() {
       const active = [];
       if (filters.status) active.push(`Status: ${filters.status}`);
@@ -596,10 +633,10 @@
       const container = document.getElementById("issues-list");
       if (active.length > 0) {
         const info = document.createElement("li");
-      info.className = "muted";
-      info.textContent = `Filters active: ${active.join(" | ")}`;
-      container.appendChild(info);
-    }
+        info.className = "muted";
+        info.textContent = `Filters active: ${active.join(" | ")}`;
+        container.appendChild(info);
+      }
     }
 
     function openDrilldown(title, rows) {
@@ -899,8 +936,7 @@
       } catch (err) {
         console.error(err);
         setStatus("Error", "red");
-        const hint = `Did you start the API? (${API_BASE}/api/reconcile)`;
-        renderIssues([err.message, hint]);
+        renderIssues([err.message]);
       } finally {
         runBtn.disabled = false;
       }
@@ -908,35 +944,3 @@
   </script>
 </body>
 </html>
-    function applyFilters(summary) {
-      const filtered = JSON.parse(JSON.stringify(summary));
-      const statusFilter = filters.status;
-      const glFilter = filters.gl;
-      const srcFilter = filters.src;
-
-      // Filter mismatched sample
-      if (filtered.mismatched_amount_sample) {
-        filtered.mismatched_amount_sample = filtered.mismatched_amount_sample.filter(r => {
-          const statusOk = statusFilter ? r.status === statusFilter : true;
-          const glOk = glFilter ? String(r.gl_account || "") === String(glFilter) : true;
-          const srcOk = srcFilter ? String(r.source_account || "") === String(srcFilter) : true;
-          return statusOk && glOk && srcOk;
-        });
-      }
-
-      // Filter counts for charts
-      if (filtered.status_counts && statusFilter) {
-        filtered.status_counts = filtered.status_counts.filter(s => s.status === statusFilter);
-      }
-      if (filtered.exceptions_by_gl && glFilter) {
-        filtered.exceptions_by_gl = filtered.exceptions_by_gl.filter(g => String(g.gl_bucket || g.gl_account || "") === String(glFilter));
-      }
-      if (filtered.exceptions_by_src && srcFilter) {
-        filtered.exceptions_by_src = filtered.exceptions_by_src.filter(g => String(g.source_bucket || g.source_account || "") === String(srcFilter));
-      }
-      // Filter time series
-      if (filtered.status_time_series && statusFilter) {
-        filtered.status_time_series = filtered.status_time_series.filter(r => r.status === statusFilter);
-      }
-      return filtered;
-    }
