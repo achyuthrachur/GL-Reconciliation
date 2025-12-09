@@ -96,15 +96,49 @@ class ReconResult:
             .replace({np.nan: None, pd.NA: None})
             .to_dict(orient="records")
         )
+        mismatch_by_counterparty = (
+            self.model[self.model["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
+            .groupby("counterparty_A")
+            .size()
+            .reset_index(name="count")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        mismatch_by_entity = (
+            self.model[self.model["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
+            .groupby("entity_A")
+            .size()
+            .reset_index(name="count")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        mismatch_by_cost_center = (
+            self.model[self.model["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
+            .groupby("cost_center_A")
+            .size()
+            .reset_index(name="count")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
         ts_df = self.model.copy()
         ts_df["date_for_ts"] = ts_df["posting_date"].combine_first(ts_df["txn_date"])
         ts_df["month"] = ts_df["date_for_ts"].dt.to_period("M").astype(str)
-        status_ts = (
+        ts_df["week"] = ts_df["date_for_ts"].dt.to_period("W-MON").astype(str)
+        status_ts_month = (
             ts_df.dropna(subset=["month"])
             .groupby(["month", "status"])
             .size()
             .reset_index(name="count")
             .sort_values("month")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        status_ts_week = (
+            ts_df.dropna(subset=["week"])
+            .groupby(["week", "status"])
+            .size()
+            .reset_index(name="count")
+            .sort_values("week")
             .replace({np.nan: None, pd.NA: None})
             .to_dict(orient="records")
         )
@@ -123,7 +157,11 @@ class ReconResult:
             "missing_map_by_source": frame_to_records(self.missing_map_by_source, 15),
             "mismatch_by_gl": mismatch_by_gl,
             "mismatch_by_src": mismatch_by_src,
-            "status_time_series": status_ts,
+            "mismatch_by_counterparty": mismatch_by_counterparty,
+            "mismatch_by_entity": mismatch_by_entity,
+            "mismatch_by_cost_center": mismatch_by_cost_center,
+            "status_time_series_month": status_ts_month,
+            "status_time_series_week": status_ts_week,
             "params": {
                 "amount_tol": self.params.amount_tol,
                 "date_tol": self.params.date_tol,

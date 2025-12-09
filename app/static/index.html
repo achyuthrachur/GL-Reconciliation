@@ -465,6 +465,13 @@
             <div class="canvas-wrap"><canvas id="src-chart" height="140"></canvas></div>
           </div>
           <div class="canvas-wrap" style="margin-top:14px;">
+            <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:6px;">
+              <span class="muted" style="font-size:12px;">Time series</span>
+              <select id="ts-granularity" style="background:var(--panel); color:var(--text); border:1px solid var(--stroke); border-radius:8px; padding:6px 8px;">
+                <option value="month">Monthly</option>
+                <option value="week">Weekly</option>
+              </select>
+            </div>
             <canvas id="time-chart" height="160"></canvas>
           </div>
         </div>
@@ -593,6 +600,32 @@
       }
     }
 
+    function openDrilldown(title, rows) {
+      const modal = document.getElementById("drilldown-modal");
+      const backdrop = document.getElementById("modal-backdrop");
+      const tableBody = document.querySelector("#drill-table tbody");
+      document.getElementById("drill-title").textContent = title;
+      tableBody.innerHTML = "";
+      if (!rows || rows.length === 0) {
+        tableBody.innerHTML = '<tr><td class="muted" colspan="5">No rows</td></tr>';
+      } else {
+        rows.forEach(r => {
+          const amt = (r.amount_diff ?? "").toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+          const days = r.days_diff ?? "";
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${r.doc_id || r.ref_id || "-"}</td><td>${amt}</td><td>${days}</td><td>${r.gl_account || "-"}</td><td>${r.source_account || "-"}</td>`;
+          tableBody.appendChild(tr);
+        });
+      }
+      modal.style.display = "block";
+      backdrop.style.display = "block";
+    }
+
+    function closeDrilldown() {
+      document.getElementById("drilldown-modal").style.display = "none";
+      document.getElementById("modal-backdrop").style.display = "none";
+    }
+
     // Chart instances and mode state
     let statusChart, glChart, srcChart, timeChart;
     let mode = "upload";
@@ -701,12 +734,14 @@
         }
       });
 
-      const ts = summary.status_time_series || [];
-      const months = Array.from(new Set(ts.map(r => r.month))).sort();
+      const gran = document.getElementById("ts-granularity")?.value || "month";
+      const ts = gran === "week" ? (summary.status_time_series_week || []) : (summary.status_time_series_month || []);
+      const labelKey = gran === "week" ? "week" : "month";
+      const months = Array.from(new Set(ts.map(r => r[labelKey]))).sort();
       const seriesByStatus = {};
       ts.forEach(r => {
         seriesByStatus[r.status] = seriesByStatus[r.status] || {};
-        seriesByStatus[r.status][r.month] = r.count;
+        seriesByStatus[r.status][r[labelKey]] = r.count;
       });
       const datasets = Object.entries(seriesByStatus).map(([status, counts], idx) => {
         const colorPalette = ["#38bdf8","#f97316","#22c55e","#a855f7","#facc15","#ef4444"];
