@@ -23,8 +23,8 @@ REPORTS_DIR.mkdir(exist_ok=True)
 
 # Demo data paths
 DEMO_FILES = {
-    "gl": ROOT_DIR / "gl_file_A (3).xlsx",
-    "src": ROOT_DIR / "subledger_file_B (3).xlsx",
+    "gl": ROOT_DIR / "gl_5yr_preset_props.xlsx",
+    "src": ROOT_DIR / "subledger_5yr_preset_props.xlsx",
     "map": ROOT_DIR / "account_mapping (3).xlsx",
 }
 
