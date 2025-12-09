@@ -229,7 +229,7 @@
       flex-wrap: wrap;
     }
     .desc {
-      font-size: 13px;
+      font-size: 14px;
       color: var(--muted);
       margin-bottom: 4px;
     }
@@ -570,9 +570,13 @@
       </div>
 
       <div id="variances-tab" class="analysis-grid tab-panel" style="display:none;">
-        <div class="canvas-wrap" style="grid-column: span 2;">
-          <div class="desc">Exceptions by source (horizontal bars) to compare volumes quickly.</div>
-          <canvas id="gl-treemap" height="220"></canvas>
+        <div class="canvas-wrap">
+          <div class="desc">Total absolute variance by GL account (bars). Sorts by dollar impact to highlight hotspots.</div>
+          <canvas id="variance-gl-chart" height="220"></canvas>
+        </div>
+        <div class="canvas-wrap">
+          <div class="desc">Total absolute variance by Source account (bars). Use to spot recurring source-side issues.</div>
+          <canvas id="variance-src-chart" height="220"></canvas>
         </div>
         <div class="table-card">
           <div class="section-title"><span></span>Mismatches by GL</div>
@@ -714,6 +718,12 @@
       if (filtered.status_time_series_year && statusFilter) {
         filtered.status_time_series_year = filtered.status_time_series_year.filter(r => r.status === statusFilter);
       }
+      if (filtered.gl_year_summary && glFilter) {
+        filtered.gl_year_summary = filtered.gl_year_summary.filter(r => String(r.gl_bucket || "") === String(glFilter));
+      }
+      if (filtered.src_year_summary && srcFilter) {
+        filtered.src_year_summary = filtered.src_year_summary.filter(r => String(r.source_bucket || "") === String(srcFilter));
+      }
       return filtered;
     }
 
@@ -771,7 +781,7 @@
     }
 
     // Chart instances and mode state
-    let statusChart, glChart, srcChart, timeChart, heatmapChart, categoryDonut, yearStatusChart, yearGlChart, yearSrcChart, glTreemap;
+      let statusChart, glChart, srcChart, timeChart, heatmapChart, categoryDonut, yearStatusChart, yearGlChart, yearSrcChart, varianceGlChart, varianceSrcChart;
     let mode = "upload";
     let demoLoaded = false;
     let latestAnalysisJson = null;
@@ -811,7 +821,8 @@
       const ctxYearStatus = document.getElementById("year-status-chart")?.getContext("2d");
       const ctxYearGl = document.getElementById("year-gl-chart")?.getContext("2d");
       const ctxYearSrc = document.getElementById("year-src-chart")?.getContext("2d");
-      const ctxTreemap = document.getElementById("gl-treemap")?.getContext("2d");
+      const ctxVarGl = document.getElementById("variance-gl-chart")?.getContext("2d");
+      const ctxVarSrc = document.getElementById("variance-src-chart")?.getContext("2d");
       if (!ctxStatus || !ctxGl || !ctxSrc || !ctxTime) return;
 
       destroyChart(statusChart);
@@ -823,7 +834,8 @@
       destroyChart(yearStatusChart);
       destroyChart(yearGlChart);
       destroyChart(yearSrcChart);
-      destroyChart(glTreemap);
+      destroyChart(varianceGlChart);
+      destroyChart(varianceSrcChart);
 
       const statusData = summary.status_counts || [];
       statusChart = new Chart(ctxStatus, {
@@ -879,7 +891,7 @@
               const sel = glData[idx]?.gl_bucket || glData[idx]?.gl_account || null;
               filters.gl = filters.gl === sel ? null : sel;
               renderAnalysis(summary);
-              const rows = (latestAnalysisJson?.gl_year_summary || []).filter(r => !sel || String(r.gl_account||"") === String(sel));
+              const rows = (latestAnalysisJson?.gl_year_summary || []).filter(r => !sel || String(r.gl_bucket||"") === String(sel));
               openDrilldown(`GL: ${sel || "All"}`, rows);
             }
           },
@@ -906,7 +918,7 @@
               const sel = srcData[idx]?.source_bucket || srcData[idx]?.source_account || null;
               filters.src = filters.src === sel ? null : sel;
               renderAnalysis(summary);
-              const rows = (latestAnalysisJson?.src_year_summary || []).filter(r => !sel || String(r.source_account||"") === String(sel));
+              const rows = (latestAnalysisJson?.src_year_summary || []).filter(r => !sel || String(r.source_bucket||"") === String(sel));
               openDrilldown(`Source: ${sel || "All"}`, rows);
             }
           },
@@ -977,7 +989,7 @@
         categoryDonut = new Chart(ctxDonut, {
           type: "doughnut",
           data: {
-            labels: catData.map(r => r.gl_account || "Unknown"),
+            labels: catData.map(r => r.gl_bucket || "Unknown"),
             datasets: [{ data: catData.map(r => r.count || 0), backgroundColor: catData.map((_,i)=>`hsla(${i*45},70%,60%,0.8)`) }]
           },
           options: { plugins: { legend: { position: "bottom" } } }
@@ -1012,14 +1024,14 @@
         const years = Array.from(new Set(glYear.map(r => r.year))).sort();
         // pick top 5 gl accounts by total count
         const totals = {};
-        glYear.forEach(r => { const k = String(r.gl_account||""); totals[k] = (totals[k]||0) + (r.count||0); });
+        glYear.forEach(r => { const k = String(r.gl_bucket||""); totals[k] = (totals[k]||0) + (r.count||0); });
         const topGl = Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k);
         const datasetsGl = topGl.map((gl, idx) => {
           const color = `hsla(${idx*60},70%,55%,0.8)`;
           return {
             label: gl || "Unknown",
             data: years.map(y => {
-              const found = glYear.find(r => String(r.year) === String(y) && String(r.gl_account||"") === gl);
+              const found = glYear.find(r => String(r.year) === String(y) && String(r.gl_bucket||"") === gl);
               return found ? found.count : 0;
             }),
             backgroundColor: color,
@@ -1037,14 +1049,14 @@
         const srcYear = summary.src_year_summary || [];
         const years = Array.from(new Set(srcYear.map(r => r.year))).sort();
         const totals = {};
-        srcYear.forEach(r => { const k = String(r.source_account||""); totals[k] = (totals[k]||0) + (r.count||0); });
+        srcYear.forEach(r => { const k = String(r.source_bucket||""); totals[k] = (totals[k]||0) + (r.count||0); });
         const topSrc = Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k);
         const datasetsSrc = topSrc.map((src, idx) => {
           const color = `hsla(${idx*50},70%,55%,0.8)`;
           return {
             label: src || "Unknown",
             data: years.map(y => {
-              const found = srcYear.find(r => String(r.year) === String(y) && String(r.source_account||"") === src);
+              const found = srcYear.find(r => String(r.year) === String(y) && String(r.source_bucket||"") === src);
               return found ? found.count : 0;
             }),
             backgroundColor: color,
@@ -1058,12 +1070,20 @@
         });
       }
 
-      if (ctxTreemap) {
-        const srcTop = (summary.mismatch_by_src || []).slice(0,10);
-        glTreemap = new Chart(ctxTreemap, {
+      if (ctxVarGl) {
+        const topGlVar = (summary.variance_by_gl || []).slice(0,8);
+        varianceGlChart = new Chart(ctxVarGl, {
           type: "bar",
-          data: { labels: srcTop.map(r => r.source_account || "Unknown"), datasets: [{ label: "By Source", data: srcTop.map(r => r.count || 0), backgroundColor: srcTop.map((_,i)=>`hsla(${i*35},70%,60%,0.7)`) }] },
-          options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+          data: { labels: topGlVar.map(r => r.gl_bucket || "Unknown"), datasets: [{ label: "Total abs variance", data: topGlVar.map(r => r.total_abs_diff || 0), backgroundColor: topGlVar.map((_,i)=>`hsla(${i*40},70%,55%,0.8)`) }] },
+          options: { indexAxis: "y", plugins: { legend: { display: true, position: "bottom" }, tooltip: { callbacks: { label: ctx => ` $${(ctx.parsed.x||0).toLocaleString()}` } } }, scales: { x: { beginAtZero: true } } }
+        });
+      }
+      if (ctxVarSrc) {
+        const topSrcVar = (summary.variance_by_src || []).slice(0,8);
+        varianceSrcChart = new Chart(ctxVarSrc, {
+          type: "bar",
+          data: { labels: topSrcVar.map(r => r.source_bucket || "Unknown"), datasets: [{ label: "Total abs variance", data: topSrcVar.map(r => r.total_abs_diff || 0), backgroundColor: topSrcVar.map((_,i)=>`hsla(${i*35+180},70%,55%,0.8)`) }] },
+          options: { indexAxis: "y", plugins: { legend: { display: true, position: "bottom" }, tooltip: { callbacks: { label: ctx => ` $${(ctx.parsed.x||0).toLocaleString()}` } } }, scales: { x: { beginAtZero: true } } }
         });
       }
     }
@@ -1099,9 +1119,9 @@
       });
       renderTable("missing-map-table", missingMap, 2, "No missing mappings");
 
-      const mismatchCat = (filtered.mismatch_by_gl || []).map(r => `<td>${r.gl_account || "-"}</td><td>${r.count || 0}</td>`);
+      const mismatchCat = (filtered.mismatch_by_gl || []).map(r => `<td>${r.gl_bucket || "-"}</td><td>${r.count || 0}</td>`);
       renderTable("mismatch-cat-table", mismatchCat, 2, "No mismatch categories");
-      const mismatchSrc = (filtered.mismatch_by_src || []).map(r => `<td>${r.source_account || "-"}</td><td>${r.count || 0}</td>`);
+      const mismatchSrc = (filtered.mismatch_by_src || []).map(r => `<td>${r.source_bucket || "-"}</td><td>${r.count || 0}</td>`);
       renderTable("mismatch-src-table", mismatchSrc, 2, "No mismatch by source");
     }
 
@@ -1198,6 +1218,7 @@
         }
         const data = await res.json();
         const summary = data.summary;
+        latestAnalysisJson = data.analysis_json || data.summary || null;
         updateKPIs(summary.overview);
         renderStatusTable(summary.status_counts);
         renderIssues(summary.issues, summary.data_quality_flags);
@@ -1208,7 +1229,6 @@
           downloadLink.style.display = "inline-block";
           downloadLink.textContent = "Download Excel";
         }
-        latestAnalysisJson = data.analysis_json || null;
         downloadJsonBtn.style.display = latestAnalysisJson ? "inline-flex" : "none";
         setStatus("Complete", "green");
       } catch (err) {

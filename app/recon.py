@@ -75,22 +75,32 @@ class ReconResult:
         def clean_overview(ov: Dict[str, float]) -> Dict[str, Optional[float]]:
             return {k: (v if v is not None and not pd.isna(v) else 0) for k, v in ov.items()}
 
+        def gl_bucket(row):
+            if not pd.isna(row.get("gl_account")):
+                return str(row["gl_account"])
+            if not pd.isna(row.get("mapped_gl_account")):
+                return str(row["mapped_gl_account"])
+            return "Unmapped"
+
         status_counts_records = (
             self.status_counts.where(pd.notna(self.status_counts), None).to_dict(orient="records")
             if not self.status_counts.empty
             else []
         )
+        ts_df = self.model.copy()
+        ts_df["gl_bucket"] = ts_df.apply(gl_bucket, axis=1)
+        ts_df["source_bucket"] = ts_df["source_account"].fillna("Unknown").astype(str)
         mismatch_by_gl = (
-            self.model[self.model["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
-            .groupby("gl_account")
+            ts_df[ts_df["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
+            .groupby("gl_bucket")
             .size()
             .reset_index(name="count")
             .replace({np.nan: None, pd.NA: None})
             .to_dict(orient="records")
         )
         mismatch_by_src = (
-            self.model[self.model["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
-            .groupby("source_account")
+            ts_df[ts_df["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
+            .groupby("source_bucket")
             .size()
             .reset_index(name="count")
             .replace({np.nan: None, pd.NA: None})
@@ -105,7 +115,7 @@ class ReconResult:
             .to_dict(orient="records")
         )
         mismatch_by_entity = (
-            self.model[self.model["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
+            ts_df[ts_df["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
             .groupby("entity_A")
             .size()
             .reset_index(name="count")
@@ -113,14 +123,13 @@ class ReconResult:
             .to_dict(orient="records")
         )
         mismatch_by_cost_center = (
-            self.model[self.model["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
+            ts_df[ts_df["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
             .groupby("cost_center_A")
             .size()
             .reset_index(name="count")
             .replace({np.nan: None, pd.NA: None})
             .to_dict(orient="records")
         )
-        ts_df = self.model.copy()
         ts_df["date_for_ts"] = ts_df["posting_date"].combine_first(ts_df["txn_date"])
         ts_df["month"] = ts_df["date_for_ts"].dt.to_period("M").astype(str)
         ts_df["year"] = ts_df["date_for_ts"].dt.year
@@ -153,9 +162,9 @@ class ReconResult:
         )
         gl_year_summary = (
             ts_df.dropna(subset=["year"])
-            .groupby(["year", "gl_account"])
+            .groupby(["year", "gl_bucket"])
             .agg(
-                count=("gl_account", "size"),
+                count=("gl_bucket", "size"),
                 amount_A=("amount_A", "sum"),
                 amount_B=("amount_B", "sum"),
                 amount_diff=("amount_diff", "sum"),
@@ -167,15 +176,31 @@ class ReconResult:
         )
         src_year_summary = (
             ts_df.dropna(subset=["year"])
-            .groupby(["year", "source_account"])
+            .groupby(["year", "source_bucket"])
             .agg(
-                count=("source_account", "size"),
+                count=("source_bucket", "size"),
                 amount_A=("amount_A", "sum"),
                 amount_B=("amount_B", "sum"),
                 amount_diff=("amount_diff", "sum"),
             )
             .reset_index()
             .sort_values("year")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        variance_by_gl = (
+            ts_df.groupby("gl_bucket")
+            .agg(count=("gl_bucket", "size"), total_diff=("amount_diff", "sum"), total_abs_diff=("amount_diff", lambda s: s.abs().sum()))
+            .reset_index()
+            .sort_values("total_abs_diff", ascending=False)
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        variance_by_src = (
+            ts_df.groupby("source_bucket")
+            .agg(count=("source_bucket", "size"), total_diff=("amount_diff", "sum"), total_abs_diff=("amount_diff", lambda s: s.abs().sum()))
+            .reset_index()
+            .sort_values("total_abs_diff", ascending=False)
             .replace({np.nan: None, pd.NA: None})
             .to_dict(orient="records")
         )
@@ -229,6 +254,8 @@ class ReconResult:
             "status_year_summary": status_year_summary,
             "gl_year_summary": gl_year_summary,
             "src_year_summary": src_year_summary,
+            "variance_by_gl": variance_by_gl,
+            "variance_by_src": variance_by_src,
             "status_time_series_month": status_ts_month,
             "status_time_series_week": status_ts_week,
             "status_time_series_year": status_ts_year,
