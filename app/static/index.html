@@ -261,6 +261,33 @@
     }
     .report-card h3 { margin-top: 10px; margin-bottom: 6px; }
     .report-card p { margin: 4px 0; }
+    .mode-toggle {
+      display: inline-flex;
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.05);
+    }
+    .mode-toggle button {
+      border: none;
+      padding: 10px 14px;
+      background: transparent;
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.12s ease;
+      box-shadow: none;
+      width: auto;
+    }
+    .mode-toggle button.active {
+      background: rgba(56,189,248,0.16);
+      color: #7dd3fc;
+    }
+    .demo-status {
+      font-size: 13px;
+      color: #7dd3fc;
+      margin-left: 10px;
+    }
     @media (max-width: 640px) {
       header, main { padding: 18px 16px; }
       button { width: 100%; }
@@ -289,12 +316,24 @@
         </div>
         <div class="divider"></div>
         <form id="recon-form">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+            <div class="mode-toggle">
+              <button type="button" id="mode-upload" class="active">Upload data</button>
+              <button type="button" id="mode-demo">Use demo data</button>
+            </div>
+            <div class="demo-status" id="demo-status" style="display:none;">Demo data loaded</div>
+          </div>
+          <div id="upload-section">
           <label for="gl-file">GL file (File A)</label>
           <input type="file" id="gl-file" name="gl_file" accept=".csv,.xlsx" required>
           <label for="src-file">Subledger / Source file (File B)</label>
           <input type="file" id="src-file" name="src_file" accept=".csv,.xlsx" required>
           <label for="map-file">Mapping matrix</label>
           <input type="file" id="map-file" name="mapping_file" accept=".csv,.xlsx" required>
+          </div>
+          <div id="demo-section" style="display:none; margin-top:8px;">
+            <button type="button" id="load-demo-btn">Load Demo Data</button>
+          </div>
           <div class="row" style="margin-top:12px;">
             <div>
               <label for="amount-tol">Amount tolerance (AMOUNT_TOL)</label>
@@ -439,6 +478,10 @@
     const statusChip = document.getElementById("status-chip");
     const downloadLink = document.getElementById("download-link");
     const issuesList = document.getElementById("issues-list");
+    const modeUploadBtn = document.getElementById("mode-upload");
+    const modeDemoBtn = document.getElementById("mode-demo");
+    const demoStatusEl = document.getElementById("demo-status");
+    const loadDemoBtn = document.getElementById("load-demo-btn");
 
     const KPI_MAP = {
       "total_rows": "kpi-total",
@@ -498,8 +541,10 @@
       });
     }
 
-    // Chart instances
+    // Chart instances and mode state
     let statusChart, glChart, srcChart;
+    let mode = "upload";
+    let demoLoaded = false;
 
     function destroyChart(chart) {
       if (chart) chart.destroy();
@@ -582,14 +627,54 @@
       renderTable("missing-map-table", missingMap, 2, "No missing mappings");
     }
 
+    function setMode(newMode) {
+      mode = newMode;
+      const uploadSection = document.getElementById("upload-section");
+      const demoSection = document.getElementById("demo-section");
+      if (mode === "upload") {
+        uploadSection.style.display = "";
+        demoSection.style.display = "none";
+        demoStatusEl.style.display = "none";
+        demoLoaded = false;
+        ["gl-file","src-file","map-file"].forEach(id => document.getElementById(id).required = true);
+      } else {
+        uploadSection.style.display = "none";
+        demoSection.style.display = "";
+        ["gl-file","src-file","map-file"].forEach(id => document.getElementById(id).required = false);
+      }
+      modeUploadBtn.classList.toggle("active", mode === "upload");
+      modeDemoBtn.classList.toggle("active", mode === "demo");
+    }
+
+    modeUploadBtn.addEventListener("click", () => setMode("upload"));
+    modeDemoBtn.addEventListener("click", () => setMode("demo"));
+
+    loadDemoBtn.addEventListener("click", () => {
+      demoLoaded = true;
+      demoStatusEl.style.display = "";
+      demoStatusEl.textContent = "Demo data loaded";
+      setStatus("Ready", "green");
+    });
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       setStatus("Working...", "yellow");
       runBtn.disabled = true;
       downloadLink.style.display = "none";
       const formData = new FormData(form);
+      let endpoint = `${API_BASE}/api/reconcile`;
+      if (mode === "demo") {
+        if (!demoLoaded) {
+          renderIssues(["Load the demo data first."]);
+          setStatus("Error", "red");
+          runBtn.disabled = false;
+          return;
+        }
+        endpoint = `${API_BASE}/api/reconcile-demo`;
+        ["gl_file","src_file","mapping_file"].forEach(name => formData.delete(name));
+      }
       try {
-        const res = await fetch(`${API_BASE}/api/reconcile`, {
+        const res = await fetch(endpoint, {
           method: "POST",
           body: formData
         });
