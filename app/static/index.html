@@ -552,14 +552,22 @@
 
       <div id="trends-tab" class="analysis-grid tab-panel" style="display:none;">
         <div class="canvas-wrap" style="grid-column: span 2;">
-          <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:6px;">
-            <span class="desc">Status counts over time (select monthly/weekly; click-and-drag pan; reset to full view).</span>
-            <select id="ts-granularity" style="background:var(--panel); color:var(--text); border:1px solid var(--stroke); border-radius:8px; padding:6px 8px;">
-              <option value="month">Monthly</option>
-              <option value="week">Weekly</option>
-            </select>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content: space-between; align-items:center; margin-bottom:6px;">
+            <span class="desc">Status counts over time (monthly/weekly). Filter to a single year or a custom month range.</span>
+            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+              <select id="ts-granularity" style="background:var(--panel); color:var(--text); border:1px solid var(--stroke); border-radius:8px; padding:6px 8px;">
+                <option value="month">Monthly</option>
+                <option value="week">Weekly</option>
+              </select>
+              <select id="ts-year-filter" style="background:var(--panel); color:var(--text); border:1px solid var(--stroke); border-radius:8px; padding:6px 8px; min-width:120px;">
+                <option value="all">All years</option>
+              </select>
+              <input type="month" id="ts-start" style="background:var(--panel); color:var(--text); border:1px solid var(--stroke); border-radius:8px; padding:6px 8px;" />
+              <input type="month" id="ts-end" style="background:var(--panel); color:var(--text); border:1px solid var(--stroke); border-radius:8px; padding:6px 8px;" />
+              <button type="button" id="ts-apply" style="width:auto; padding:6px 10px;">Apply</button>
+            </div>
           </div>
-          <canvas id="time-chart" height="200"></canvas>
+          <canvas id="time-chart" height="160"></canvas>
           <button type="button" id="reset-time" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
         </div>
         <div class="canvas-wrap">
@@ -781,7 +789,18 @@
     tabButtons.forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tab)));
     setTab("snapshot-tab");
     const tsGran = document.getElementById("ts-granularity");
+    const tsYearFilter = document.getElementById("ts-year-filter");
+    const tsStart = document.getElementById("ts-start");
+    const tsEnd = document.getElementById("ts-end");
+    const tsApply = document.getElementById("ts-apply");
+    const timeFilter = { year: "all", start: "", end: "" };
     if (tsGran) tsGran.addEventListener("change", () => { if (latestAnalysisJson) renderAnalysis(latestAnalysisJson); });
+    if (tsApply) tsApply.addEventListener("click", () => {
+      timeFilter.year = tsYearFilter?.value || "all";
+      timeFilter.start = tsStart?.value || "";
+      timeFilter.end = tsEnd?.value || "";
+      if (latestAnalysisJson) renderAnalysis(latestAnalysisJson);
+    });
 
     function openDrilldown(title, rows) {
       const modal = document.getElementById("drilldown-modal");
@@ -957,8 +976,22 @@
       });
 
       const gran = document.getElementById("ts-granularity")?.value || "month";
-      const ts = gran === "week" ? (summary.status_time_series_week || []) : (summary.status_time_series_month || []);
+      let ts = gran === "week" ? (summary.status_time_series_week || []) : (summary.status_time_series_month || []);
       const labelKey = gran === "week" ? "week" : "month";
+      // time filter (year or custom month range)
+      const yearSel = (typeof timeFilter !== "undefined" && timeFilter.year) ? timeFilter.year : "all";
+      const startSel = (typeof timeFilter !== "undefined" && timeFilter.start) ? timeFilter.start : "";
+      const endSel = (typeof timeFilter !== "undefined" && timeFilter.end) ? timeFilter.end : "";
+      ts = ts.filter(r => {
+        const label = r[labelKey];
+        if (!label) return false;
+        if (gran === "month") {
+          if (yearSel !== "all" && !String(label).startsWith(String(yearSel))) return false;
+          if (startSel && label < startSel) return false;
+          if (endSel && label > endSel) return false;
+        }
+        return true;
+      });
       const months = Array.from(new Set(ts.map(r => r[labelKey]))).sort();
       const seriesByStatus = {};
       ts.forEach(r => {
@@ -1135,6 +1168,12 @@
     function renderAnalysis(summary) {
       const filtered = applyFilters(summary);
       renderCharts(filtered);
+      // populate year filter options from summary if available
+      if (tsYearFilter) {
+        const years = Array.from(new Set((summary.status_time_series_year || []).map(r => r.year))).sort();
+        tsYearFilter.innerHTML = `<option value="all">All years</option>` + years.map(y => `<option value="${y}">${y}</option>`).join("");
+        if (timeFilter && timeFilter.year) tsYearFilter.value = timeFilter.year;
+      }
 
       const mismatches = (filtered.status_kpis || []).map(r => {
         const amtA = (r.amount_A ?? 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -1198,6 +1237,14 @@
       filters.status = null;
       filters.gl = null;
       filters.src = null;
+      if (typeof timeFilter !== "undefined") {
+        timeFilter.year = "all";
+        timeFilter.start = "";
+        timeFilter.end = "";
+        if (tsYearFilter) tsYearFilter.value = "all";
+        if (tsStart) tsStart.value = "";
+        if (tsEnd) tsEnd.value = "";
+      }
       if (latestAnalysisJson) renderAnalysis(latestAnalysisJson);
       [statusChart, glChart, srcChart, timeChart].forEach(ch => { if (ch && ch.resetZoom) ch.resetZoom(); });
     }
