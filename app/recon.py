@@ -377,8 +377,7 @@ def run_reconciliation(
     within_date = merged["days_diff"].abs() <= params.date_tol
     both_exist = a_exists & b_exists
 
-    merged["status"] = "MISMATCH - AMOUNT"
-    merged["status"] = merged["status"].astype(object)
+    merged["status"] = pd.Series(["MISMATCH - AMOUNT"] * len(merged), index=merged.index, dtype="object")
     merged.loc[~a_exists & b_exists, "status"] = "ONLY PRESENT IN SUBLEDGER"
     merged.loc[a_exists & ~b_exists, "status"] = "ONLY PRESENT IN LEDGER"
     merged.loc[both_exist & mapping_ok_series & (merged["amount_diff"] == 0) & (merged["days_diff"] == 0), "status"] = "EXACT"
@@ -414,7 +413,8 @@ def run_reconciliation(
     # Mapping mismatches: keep status in allowed set but surface as data quality
     dq_flags: List[str] = []
     mapping_conflicts = merged[both_exist & (~mapping_ok_series)]
-    if not mapping_conflicts.empty:
+    map_issue_count = len(mapping_conflicts)
+    if map_issue_count > 0:
         examples = mapping_conflicts.head(5)[["doc_id", "ref_id", "gl_account", "mapped_gl_account"]].to_dict(orient="records")
         dq_flags.append(f"Mapping mismatches detected between GL and mapped account (examples: {examples})")
         merged.loc[mapping_conflicts.index, "status"] = "MISMATCH - AMOUNT"
@@ -433,7 +433,7 @@ def run_reconciliation(
         "total_rows": int(len(merged)),
         "exact_matches": _count("EXACT"),
         "near_matches": _count("NEAR MATCH - DATE") + _count("NEAR MATCH - AMOUNT"),
-        "mapping_issues": _count("MISMATCH - AMOUNT") if mapping_conflicts is not None else 0,
+        "mapping_issues": map_issue_count,
         "mismatches": _count("MISMATCH - DATE") + _count("MISMATCH - AMOUNT"),
         "unmatched_a": _count("ONLY PRESENT IN LEDGER"),
         "unmatched_b": _count("ONLY PRESENT IN SUBLEDGER"),

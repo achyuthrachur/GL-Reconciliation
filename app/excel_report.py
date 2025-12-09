@@ -211,7 +211,7 @@ def build_excel_report(result: ReconResult, output_path: Path) -> Path:
                 f"A2:{end_col_letter}{last_row}",
                 {
                     "type": "no_blanks",
-                    "format": workbook.add_format({"bg_color": status_colors["MISMATCH"]}),
+                    "format": workbook.add_format({"bg_color": status_colors.get("MISMATCH - AMOUNT", "#f4cccc")}),
                 },
             )
 
