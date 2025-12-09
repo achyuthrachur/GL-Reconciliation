@@ -286,11 +286,13 @@
     .theme-toggle {
       padding: 8px 12px;
       border: 1px solid var(--stroke);
-      border-radius: 12px;
+      border-radius: 10px;
       background: var(--panel);
       color: var(--text);
       font-weight: 600;
       cursor: pointer;
+      width: auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
     }
     .mode-toggle button {
       border: none;
@@ -594,10 +596,10 @@
       const container = document.getElementById("issues-list");
       if (active.length > 0) {
         const info = document.createElement("li");
-        info.className = "muted";
-        info.textContent = `Filters active → ${active.join(" | ")}`;
-        container.appendChild(info);
-      }
+      info.className = "muted";
+      info.textContent = `Filters active: ${active.join(" | ")}`;
+      container.appendChild(info);
+    }
     }
 
     function openDrilldown(title, rows) {
