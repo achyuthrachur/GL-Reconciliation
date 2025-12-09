@@ -228,6 +228,11 @@
       gap: 10px;
       flex-wrap: wrap;
     }
+    .desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
     .tag-pill {
       background: rgba(15,118,110,0.18);
       color: #5eead4;
@@ -492,18 +497,18 @@
       <div id="snapshot-tab" class="analysis-grid tab-panel">
         <div>
           <div class="canvas-wrap">
-            <div class="muted" style="font-size:12px; margin-bottom:4px;">Status mix across all reconciled rows. Click a status to filter everything and open a detail modal; reset returns to the full population.</div>
+            <div class="desc">Status mix across all reconciled rows. Click a status to filter everything and open a detail modal; reset returns to the full population.</div>
             <canvas id="status-chart" height="180"></canvas>
             <button type="button" id="reset-status" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
           </div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:14px;">
             <div class="canvas-wrap">
-              <div class="muted" style="font-size:12px; margin-bottom:4px;">Exceptions by GL account. Click a bar to drill into that GL’s rows and filter the dashboard.</div>
+              <div class="desc">Exceptions by GL account. Click a bar to drill into that GL’s rows and filter the dashboard.</div>
               <canvas id="gl-chart" height="140"></canvas>
               <button type="button" id="reset-gl" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
             </div>
             <div class="canvas-wrap">
-              <div class="muted" style="font-size:12px; margin-bottom:4px;">Exceptions by Source/Subledger account. Click to drill and filter.</div>
+              <div class="desc">Exceptions by Source/Subledger account. Click to drill and filter.</div>
               <canvas id="src-chart" height="140"></canvas>
               <button type="button" id="reset-src" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
             </div>
@@ -513,7 +518,7 @@
           <div class="table-card">
             <div class="section-title"><span></span>Top variances</div>
             <table class="status-table" id="mismatch-table">
-              <thead><tr><th>ID</th><th>Amount diff</th><th>Days diff</th><th>Category</th><th>Counterparty</th></tr></thead>
+              <thead><tr><th>Category</th><th>Count</th><th>Amount A</th><th>Amount B</th><th>Amount diff</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -530,7 +535,7 @@
       <div id="trends-tab" class="analysis-grid tab-panel" style="display:none;">
         <div class="canvas-wrap" style="grid-column: span 2;">
           <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:6px;">
-            <span class="muted" style="font-size:12px;">Status counts over time (select monthly/weekly; click-and-drag pan; reset to full view).</span>
+            <span class="desc">Status counts over time (select monthly/weekly; click-and-drag pan; reset to full view).</span>
             <select id="ts-granularity" style="background:var(--panel); color:var(--text); border:1px solid var(--stroke); border-radius:8px; padding:6px 8px;">
               <option value="month">Monthly</option>
               <option value="week">Weekly</option>
@@ -540,33 +545,33 @@
           <button type="button" id="reset-time" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
         </div>
         <div class="canvas-wrap">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">Stacked status by month — see seasonality and mix shifts at a glance.</div>
+          <div class="desc">Stacked status by month — see seasonality and mix shifts at a glance.</div>
           <canvas id="heatmap-chart" height="200"></canvas>
         </div>
         <div class="canvas-wrap">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">Mismatch mix by GL (top categories) to spot concentration.</div>
+          <div class="desc">Mismatch mix by GL (top categories) to spot concentration.</div>
           <canvas id="category-donut" height="200"></canvas>
         </div>
       </div>
 
       <div id="yearly-tab" class="analysis-grid tab-panel" style="display:none;">
         <div class="canvas-wrap">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">Status trends by year — stacked to show mix and volume changes.</div>
+          <div class="desc">Status trends by year — stacked to show mix and volume changes.</div>
           <canvas id="year-status-chart" height="200"></canvas>
         </div>
         <div class="canvas-wrap">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">GL exceptions by year — identify persistent problem accounts.</div>
+          <div class="desc">GL exceptions by year — identify persistent problem accounts.</div>
           <canvas id="year-gl-chart" height="200"></canvas>
         </div>
         <div class="canvas-wrap">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">Source exceptions by year — highlights recurring source-side issues.</div>
+          <div class="desc">Source exceptions by year — highlights recurring source-side issues.</div>
           <canvas id="year-src-chart" height="200"></canvas>
         </div>
       </div>
 
       <div id="variances-tab" class="analysis-grid tab-panel" style="display:none;">
         <div class="canvas-wrap" style="grid-column: span 2;">
-          <div class="muted" style="font-size:12px; margin-bottom:4px;">Exceptions by source (horizontal bars) to compare volumes quickly.</div>
+          <div class="desc">Exceptions by source (horizontal bars) to compare volumes quickly.</div>
           <canvas id="gl-treemap" height="220"></canvas>
         </div>
         <div class="table-card">
@@ -745,13 +750,14 @@
       document.getElementById("drill-title").textContent = title;
       tableBody.innerHTML = "";
       if (!rows || rows.length === 0) {
-        tableBody.innerHTML = '<tr><td class="muted" colspan="5">No rows</td></tr>';
+        tableBody.innerHTML = '<tr><td class="muted" colspan="5">No summary</td></tr>';
       } else {
         rows.forEach(r => {
-          const amt = (r.amount_diff ?? "").toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-          const days = r.days_diff ?? "";
+          const amtA = (r.amount_A ?? "").toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+          const amtB = (r.amount_B ?? "").toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+          const amtDiff = (r.amount_diff ?? "").toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${r.doc_id || r.ref_id || "-"}</td><td>${amt}</td><td>${days}</td><td>${r.gl_account || "-"}</td><td>${r.source_account || "-"}</td>`;
+          tr.innerHTML = `<td>${r.year || "-"}</td><td>${r.count ?? "-"}</td><td>${amtA}</td><td>${amtB}</td><td>${amtDiff}</td>`;
           tableBody.appendChild(tr);
         });
       }
@@ -846,7 +852,7 @@
               const sel = statusData[idx]?.status || null;
               filters.status = filters.status === sel ? null : sel;
               renderAnalysis(summary);
-              const rows = (latestAnalysisJson?.drill_rows || []).filter(r => !sel || r.status === sel);
+              const rows = (latestAnalysisJson?.status_year_summary || []).filter(r => !sel || r.status === sel);
               openDrilldown(`Status: ${sel || "All"}`, rows);
             }
           },
@@ -873,7 +879,7 @@
               const sel = glData[idx]?.gl_bucket || glData[idx]?.gl_account || null;
               filters.gl = filters.gl === sel ? null : sel;
               renderAnalysis(summary);
-              const rows = (latestAnalysisJson?.drill_rows || []).filter(r => !sel || String(r.gl_account||"") === String(sel));
+              const rows = (latestAnalysisJson?.gl_year_summary || []).filter(r => !sel || String(r.gl_account||"") === String(sel));
               openDrilldown(`GL: ${sel || "All"}`, rows);
             }
           },
@@ -900,7 +906,7 @@
               const sel = srcData[idx]?.source_bucket || srcData[idx]?.source_account || null;
               filters.src = filters.src === sel ? null : sel;
               renderAnalysis(summary);
-              const rows = (latestAnalysisJson?.drill_rows || []).filter(r => !sel || String(r.source_account||"") === String(sel));
+              const rows = (latestAnalysisJson?.src_year_summary || []).filter(r => !sel || String(r.source_account||"") === String(sel));
               openDrilldown(`Source: ${sel || "All"}`, rows);
             }
           },
@@ -942,7 +948,7 @@
       });
 
       if (ctxHeat) {
-        const heatData = summary.status_time_series_month || [];
+      const heatData = summary.status_time_series_month || [];
         const monthsHeat = Array.from(new Set(heatData.map(r => r.month))).sort();
         const statusesHeat = Array.from(new Set(heatData.map(r => r.status)));
         const dataMatrix = statusesHeat.map(status => monthsHeat.map(m => {
@@ -979,7 +985,7 @@
       }
 
       if (ctxYearStatus) {
-        const ys = summary.status_time_series_year || [];
+        const ys = summary.status_year_summary || [];
         const years = Array.from(new Set(ys.map(r => r.year))).sort();
         const statuses = Array.from(new Set(ys.map(r => r.status)));
         const datasetsYear = statuses.map((s, idx) => {
@@ -1002,20 +1008,53 @@
       }
 
       if (ctxYearGl) {
-        const glTop = (summary.mismatch_by_gl || []).slice(0,8);
+        const glYear = summary.gl_year_summary || [];
+        const years = Array.from(new Set(glYear.map(r => r.year))).sort();
+        // pick top 5 gl accounts by total count
+        const totals = {};
+        glYear.forEach(r => { const k = String(r.gl_account||""); totals[k] = (totals[k]||0) + (r.count||0); });
+        const topGl = Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k);
+        const datasetsGl = topGl.map((gl, idx) => {
+          const color = `hsla(${idx*60},70%,55%,0.8)`;
+          return {
+            label: gl || "Unknown",
+            data: years.map(y => {
+              const found = glYear.find(r => String(r.year) === String(y) && String(r.gl_account||"") === gl);
+              return found ? found.count : 0;
+            }),
+            backgroundColor: color,
+            stack: "glYear",
+          };
+        });
         yearGlChart = new Chart(ctxYearGl, {
           type: "bar",
-          data: { labels: glTop.map(r => r.gl_account || "Unknown"), datasets: [{ label: "Exceptions", data: glTop.map(r => r.count || 0), backgroundColor: "#38bdf8" }] },
-          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+          data: { labels: years, datasets: datasetsGl },
+          options: { plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
         });
       }
 
       if (ctxYearSrc) {
-        const srcTop = (summary.mismatch_by_src || []).slice(0,8);
+        const srcYear = summary.src_year_summary || [];
+        const years = Array.from(new Set(srcYear.map(r => r.year))).sort();
+        const totals = {};
+        srcYear.forEach(r => { const k = String(r.source_account||""); totals[k] = (totals[k]||0) + (r.count||0); });
+        const topSrc = Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k);
+        const datasetsSrc = topSrc.map((src, idx) => {
+          const color = `hsla(${idx*50},70%,55%,0.8)`;
+          return {
+            label: src || "Unknown",
+            data: years.map(y => {
+              const found = srcYear.find(r => String(r.year) === String(y) && String(r.source_account||"") === src);
+              return found ? found.count : 0;
+            }),
+            backgroundColor: color,
+            stack: "srcYear",
+          };
+        });
         yearSrcChart = new Chart(ctxYearSrc, {
           type: "bar",
-          data: { labels: srcTop.map(r => r.source_account || "Unknown"), datasets: [{ label: "Exceptions", data: srcTop.map(r => r.count || 0), backgroundColor: "#ef4444" }] },
-          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+          data: { labels: years, datasets: datasetsSrc },
+          options: { plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
         });
       }
 
@@ -1047,12 +1086,13 @@
       const filtered = applyFilters(summary);
       renderCharts(filtered);
 
-      const mismatches = (filtered.mismatched_amount_sample || []).map(r => {
-        const amt = (r.amount_diff ?? "").toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-        const days = r.days_diff ?? "";
-        return `<td>${r.doc_id || r.ref_id || "-"}</td><td>${amt}</td><td>${days}</td><td>${r.gl_account || "-"}</td><td>${r.counterparty || r.source_account || "-"}</td>`;
+      const mismatches = (filtered.status_kpis || []).map(r => {
+        const amtA = (r.amount_A ?? 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+        const amtB = (r.amount_B ?? 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+        const amtDiff = (r.amount_diff ?? 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+        return `<td>${r.status || "-"}</td><td>${r.count ?? 0}</td><td>${amtA}</td><td>${amtB}</td><td>${amtDiff}</td>`;
       });
-      renderTable("mismatch-table", mismatches, 5, "No mismatches");
+      renderTable("mismatch-table", mismatches, 5, "No summaries");
 
       const missingMap = (filtered.missing_map_by_source || []).map(r => {
         return `<td>${r.source_account || "-"}</td><td>${r.count || 0}</td>`;
@@ -1189,7 +1229,7 @@
     </div>
     <div class="table-card" style="max-height:420px; overflow:auto;">
       <table class="status-table" id="drill-table">
-        <thead><tr><th>ID</th><th>Amount diff</th><th>Days diff</th><th>GL</th><th>Source</th></tr></thead>
+        <thead><tr><th>Year</th><th>Count</th><th>Amount A</th><th>Amount B</th><th>Amount diff</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>

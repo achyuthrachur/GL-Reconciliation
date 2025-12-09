@@ -125,6 +125,60 @@ class ReconResult:
         ts_df["month"] = ts_df["date_for_ts"].dt.to_period("M").astype(str)
         ts_df["year"] = ts_df["date_for_ts"].dt.year
         ts_df["week"] = ts_df["date_for_ts"].dt.to_period("W-MON").astype(str)
+        status_kpis = (
+            self.model.groupby("status")
+            .agg(
+                count=("status", "size"),
+                amount_A=("amount_A", "sum"),
+                amount_B=("amount_B", "sum"),
+                amount_diff=("amount_diff", "sum"),
+            )
+            .reset_index()
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        status_year_summary = (
+            ts_df.dropna(subset=["year"])
+            .groupby(["year", "status"])
+            .agg(
+                count=("status", "size"),
+                amount_A=("amount_A", "sum"),
+                amount_B=("amount_B", "sum"),
+                amount_diff=("amount_diff", "sum"),
+            )
+            .reset_index()
+            .sort_values("year")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        gl_year_summary = (
+            ts_df.dropna(subset=["year"])
+            .groupby(["year", "gl_account"])
+            .agg(
+                count=("gl_account", "size"),
+                amount_A=("amount_A", "sum"),
+                amount_B=("amount_B", "sum"),
+                amount_diff=("amount_diff", "sum"),
+            )
+            .reset_index()
+            .sort_values("year")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        src_year_summary = (
+            ts_df.dropna(subset=["year"])
+            .groupby(["year", "source_account"])
+            .agg(
+                count=("source_account", "size"),
+                amount_A=("amount_A", "sum"),
+                amount_B=("amount_B", "sum"),
+                amount_diff=("amount_diff", "sum"),
+            )
+            .reset_index()
+            .sort_values("year")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
         status_ts_month = (
             ts_df.dropna(subset=["month"])
             .groupby(["month", "status"])
@@ -171,6 +225,10 @@ class ReconResult:
             "mismatch_by_counterparty": mismatch_by_counterparty,
             "mismatch_by_entity": mismatch_by_entity,
             "mismatch_by_cost_center": mismatch_by_cost_center,
+            "status_kpis": status_kpis,
+            "status_year_summary": status_year_summary,
+            "gl_year_summary": gl_year_summary,
+            "src_year_summary": src_year_summary,
             "status_time_series_month": status_ts_month,
             "status_time_series_week": status_ts_week,
             "status_time_series_year": status_ts_year,
