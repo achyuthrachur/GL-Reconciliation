@@ -123,6 +123,7 @@ class ReconResult:
         ts_df = self.model.copy()
         ts_df["date_for_ts"] = ts_df["posting_date"].combine_first(ts_df["txn_date"])
         ts_df["month"] = ts_df["date_for_ts"].dt.to_period("M").astype(str)
+        ts_df["year"] = ts_df["date_for_ts"].dt.year
         ts_df["week"] = ts_df["date_for_ts"].dt.to_period("W-MON").astype(str)
         status_ts_month = (
             ts_df.dropna(subset=["month"])
@@ -139,6 +140,15 @@ class ReconResult:
             .size()
             .reset_index(name="count")
             .sort_values("week")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        status_ts_year = (
+            ts_df.dropna(subset=["year"])
+            .groupby(["year", "status"])
+            .size()
+            .reset_index(name="count")
+            .sort_values("year")
             .replace({np.nan: None, pd.NA: None})
             .to_dict(orient="records")
         )
@@ -162,6 +172,7 @@ class ReconResult:
             "mismatch_by_cost_center": mismatch_by_cost_center,
             "status_time_series_month": status_ts_month,
             "status_time_series_week": status_ts_week,
+            "status_time_series_year": status_ts_year,
             "params": {
                 "amount_tol": self.params.amount_tol,
                 "date_tol": self.params.date_tol,

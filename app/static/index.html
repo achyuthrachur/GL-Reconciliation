@@ -20,6 +20,7 @@
       --accent-3: #fbbf24;
       --text: #e5e7eb;
       --muted: #9ca3af;
+      --lede: #d1d5db;
       --danger: #f87171;
       --success: #22c55e;
       --warning: #f59e0b;
@@ -35,6 +36,7 @@
       --accent-3: #f59e0b;
       --text: #0f172a;
       --muted: #475569;
+      --lede: #1f2937;
       --danger: #dc2626;
       --success: #16a34a;
       --warning: #d97706;
@@ -57,6 +59,16 @@
       justify-content: space-between;
       gap: 16px;
     }
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 0%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      z-index: 999;
+      transition: width 0.2s ease;
+    }
     h1 {
       margin: 0;
       font-size: 30px;
@@ -64,7 +76,7 @@
     }
     p.lede {
       margin: 6px 0 0;
-      color: #cbd5e1;
+      color: var(--lede);
       max-width: 900px;
       line-height: 1.5;
     }
@@ -325,6 +337,7 @@
   </style>
 </head>
 <body>
+  <div id="progress-bar" class="progress-bar"></div>
   <header>
     <div>
       <div class="badge">Live Reconciliation</div>
@@ -455,28 +468,23 @@
       <div class="flex-between">
         <div>
           <div class="section-title"><span></span>Analysis</div>
-          <div class="tagline">Charts and quick tables appear after a run.</div>
+          <div class="tagline">Tabs for snapshot, trends, yearly, and variances.</div>
+        </div>
+        <div class="mode-toggle">
+          <button type="button" class="active" data-tab="snapshot-tab">Snapshot</button>
+          <button type="button" data-tab="trends-tab">Trends</button>
+          <button type="button" data-tab="yearly-tab">Yearly</button>
+          <button type="button" data-tab="variances-tab">Variances</button>
         </div>
       </div>
       <div class="divider"></div>
-      <div class="analysis-grid">
+
+      <div id="snapshot-tab" class="analysis-grid tab-panel">
         <div>
-          <div class="canvas-wrap">
-            <canvas id="status-chart" height="180"></canvas>
-          </div>
+          <div class="canvas-wrap"><canvas id="status-chart" height="180"></canvas></div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:14px;">
             <div class="canvas-wrap"><canvas id="gl-chart" height="140"></canvas></div>
             <div class="canvas-wrap"><canvas id="src-chart" height="140"></canvas></div>
-          </div>
-          <div class="canvas-wrap" style="margin-top:14px;">
-            <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:6px;">
-              <span class="muted" style="font-size:12px;">Time series</span>
-              <select id="ts-granularity" style="background:var(--panel); color:var(--text); border:1px solid var(--stroke); border-radius:8px; padding:6px 8px;">
-                <option value="month">Monthly</option>
-                <option value="week">Weekly</option>
-              </select>
-            </div>
-            <canvas id="time-chart" height="160"></canvas>
           </div>
         </div>
         <div style="display:grid; gap:12px;">
@@ -494,13 +502,57 @@
               <tbody></tbody>
             </table>
           </div>
-          <div class="table-card">
-            <div class="section-title"><span></span>Mismatches by category</div>
-            <table class="status-table" id="mismatch-cat-table">
-              <thead><tr><th>Category</th><th>Count</th></tr></thead>
-              <tbody></tbody>
-            </table>
+        </div>
+      </div>
+
+      <div id="trends-tab" class="analysis-grid tab-panel" style="display:none;">
+        <div class="canvas-wrap" style="grid-column: span 2;">
+          <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:6px;">
+            <span class="muted" style="font-size:12px;">Time series</span>
+            <select id="ts-granularity" style="background:var(--panel); color:var(--text); border:1px solid var(--stroke); border-radius:8px; padding:6px 8px;">
+              <option value="month">Monthly</option>
+              <option value="week">Weekly</option>
+            </select>
           </div>
+          <canvas id="time-chart" height="200"></canvas>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="heatmap-chart" height="200"></canvas>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="category-donut" height="200"></canvas>
+        </div>
+      </div>
+
+      <div id="yearly-tab" class="analysis-grid tab-panel" style="display:none;">
+        <div class="canvas-wrap">
+          <canvas id="year-status-chart" height="200"></canvas>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="year-gl-chart" height="200"></canvas>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="year-src-chart" height="200"></canvas>
+        </div>
+      </div>
+
+      <div id="variances-tab" class="analysis-grid tab-panel" style="display:none;">
+        <div class="canvas-wrap" style="grid-column: span 2;">
+          <canvas id="gl-treemap" height="220"></canvas>
+        </div>
+        <div class="table-card">
+          <div class="section-title"><span></span>Mismatches by GL</div>
+          <table class="status-table" id="mismatch-cat-table">
+            <thead><tr><th>Category</th><th>Count</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="table-card">
+          <div class="section-title"><span></span>Mismatches by Source</div>
+          <table class="status-table" id="mismatch-src-table">
+            <thead><tr><th>Source</th><th>Count</th></tr></thead>
+            <tbody></tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -622,6 +674,9 @@
       if (filtered.status_time_series_week && statusFilter) {
         filtered.status_time_series_week = filtered.status_time_series_week.filter(r => r.status === statusFilter);
       }
+      if (filtered.status_time_series_year && statusFilter) {
+        filtered.status_time_series_year = filtered.status_time_series_year.filter(r => r.status === statusFilter);
+      }
       return filtered;
     }
 
@@ -638,6 +693,18 @@
         container.appendChild(info);
       }
     }
+
+    // Tabs
+    const tabButtons = Array.from(document.querySelectorAll(".mode-toggle button[data-tab]"));
+    const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
+    function setTab(tabId) {
+      tabButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabId));
+      tabPanels.forEach(panel => panel.style.display = panel.id === tabId ? "" : "none");
+    }
+    tabButtons.forEach(btn => btn.addEventListener("click", () => setTab(btn.dataset.tab)));
+    setTab("snapshot-tab");
+    const tsGran = document.getElementById("ts-granularity");
+    if (tsGran) tsGran.addEventListener("change", () => { if (latestAnalysisJson) renderAnalysis(latestAnalysisJson); });
 
     function openDrilldown(title, rows) {
       const modal = document.getElementById("drilldown-modal");
@@ -666,12 +733,30 @@
     }
 
     // Chart instances and mode state
-    let statusChart, glChart, srcChart, timeChart;
+    let statusChart, glChart, srcChart, timeChart, heatmapChart, categoryDonut, yearStatusChart, yearGlChart, yearSrcChart, glTreemap;
     let mode = "upload";
     let demoLoaded = false;
     let latestAnalysisJson = null;
     let theme = "dark";
     const filters = { status: null, gl: null, src: null };
+    let progressTimer = null;
+
+    function startProgress() {
+      const bar = document.getElementById("progress-bar");
+      bar.style.width = "0%";
+      let w = 0;
+      progressTimer = setInterval(() => {
+        w = Math.min(95, w + Math.random() * 10);
+        bar.style.width = `${w}%`;
+      }, 200);
+    }
+
+    function stopProgress() {
+      const bar = document.getElementById("progress-bar");
+      if (progressTimer) clearInterval(progressTimer);
+      bar.style.width = "100%";
+      setTimeout(() => { bar.style.width = "0%"; }, 300);
+    }
 
     function destroyChart(chart) {
       if (chart) chart.destroy();
@@ -683,12 +768,24 @@
       const ctxGl = document.getElementById("gl-chart")?.getContext("2d");
       const ctxSrc = document.getElementById("src-chart")?.getContext("2d");
       const ctxTime = document.getElementById("time-chart")?.getContext("2d");
+      const ctxHeat = document.getElementById("heatmap-chart")?.getContext("2d");
+      const ctxDonut = document.getElementById("category-donut")?.getContext("2d");
+      const ctxYearStatus = document.getElementById("year-status-chart")?.getContext("2d");
+      const ctxYearGl = document.getElementById("year-gl-chart")?.getContext("2d");
+      const ctxYearSrc = document.getElementById("year-src-chart")?.getContext("2d");
+      const ctxTreemap = document.getElementById("gl-treemap")?.getContext("2d");
       if (!ctxStatus || !ctxGl || !ctxSrc || !ctxTime) return;
 
       destroyChart(statusChart);
       destroyChart(glChart);
       destroyChart(srcChart);
       destroyChart(timeChart);
+      destroyChart(heatmapChart);
+      destroyChart(categoryDonut);
+      destroyChart(yearStatusChart);
+      destroyChart(yearGlChart);
+      destroyChart(yearSrcChart);
+      destroyChart(glTreemap);
 
       const statusData = summary.status_counts || [];
       statusChart = new Chart(ctxStatus, {
@@ -717,6 +814,7 @@
               const sel = statusData[idx]?.status || null;
               filters.status = filters.status === sel ? null : sel;
               renderAnalysis(summary);
+              openDrilldown(`Status: ${sel || "All"}`, (latestAnalysisJson?.mismatched_amount_sample || []).filter(r => !sel || r.status === sel));
             }
           },
           scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } }
@@ -742,6 +840,7 @@
               const sel = glData[idx]?.gl_bucket || glData[idx]?.gl_account || null;
               filters.gl = filters.gl === sel ? null : sel;
               renderAnalysis(summary);
+              openDrilldown(`GL: ${sel || "All"}`, (latestAnalysisJson?.mismatched_amount_sample || []).filter(r => !sel || String(r.gl_account||"") === String(sel)));
             }
           },
           scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } }
@@ -767,6 +866,7 @@
               const sel = srcData[idx]?.source_bucket || srcData[idx]?.source_account || null;
               filters.src = filters.src === sel ? null : sel;
               renderAnalysis(summary);
+              openDrilldown(`Source: ${sel || "All"}`, (latestAnalysisJson?.mismatched_amount_sample || []).filter(r => !sel || String(r.source_account||"") === String(sel)));
             }
           },
           scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } }
@@ -805,6 +905,93 @@
           scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.08)" } }, x: { grid: { color: "rgba(255,255,255,0.05)" } } }
         }
       });
+
+      if (ctxHeat) {
+        const heatData = summary.status_time_series_month || [];
+        const monthsHeat = Array.from(new Set(heatData.map(r => r.month))).sort();
+        const statusesHeat = Array.from(new Set(heatData.map(r => r.status)));
+        const dataMatrix = statusesHeat.map(status => monthsHeat.map(m => {
+          const found = heatData.find(r => r.month === m && r.status === status);
+          return found ? found.count : 0;
+        }));
+        heatmapChart = new Chart(ctxHeat, {
+          type: "bar",
+          data: {
+            labels: monthsHeat,
+            datasets: statusesHeat.map((s, idx) => ({
+              label: s,
+              data: dataMatrix[idx],
+              backgroundColor: `hsla(${idx * 60},70%,60%,0.5)`
+            }))
+          },
+          options: {
+            plugins: { legend: { position: "bottom" } },
+            scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+          }
+        });
+      }
+
+      if (ctxDonut) {
+        const catData = (summary.mismatch_by_gl || []).slice(0,8);
+        categoryDonut = new Chart(ctxDonut, {
+          type: "doughnut",
+          data: {
+            labels: catData.map(r => r.gl_account || "Unknown"),
+            datasets: [{ data: catData.map(r => r.count || 0), backgroundColor: catData.map((_,i)=>`hsla(${i*45},70%,60%,0.8)`) }]
+          },
+          options: { plugins: { legend: { position: "bottom" } } }
+        });
+      }
+
+      if (ctxYearStatus) {
+        const ys = summary.status_time_series_year || [];
+        const years = Array.from(new Set(ys.map(r => r.year))).sort();
+        const statuses = Array.from(new Set(ys.map(r => r.status)));
+        const datasetsYear = statuses.map((s, idx) => {
+          const color = `hsla(${idx*50},70%,55%,0.8)`;
+          return {
+            label: s,
+            data: years.map(y => {
+              const found = ys.find(r => String(r.year) === String(y) && r.status === s);
+              return found ? found.count : 0;
+            }),
+            backgroundColor: color,
+            stack: "statusYear",
+          };
+        });
+        yearStatusChart = new Chart(ctxYearStatus, {
+          type: "bar",
+          data: { labels: years, datasets: datasetsYear },
+          options: { plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+        });
+      }
+
+      if (ctxYearGl) {
+        const glTop = (summary.mismatch_by_gl || []).slice(0,8);
+        yearGlChart = new Chart(ctxYearGl, {
+          type: "bar",
+          data: { labels: glTop.map(r => r.gl_account || "Unknown"), datasets: [{ label: "Exceptions", data: glTop.map(r => r.count || 0), backgroundColor: "#38bdf8" }] },
+          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+      }
+
+      if (ctxYearSrc) {
+        const srcTop = (summary.mismatch_by_src || []).slice(0,8);
+        yearSrcChart = new Chart(ctxYearSrc, {
+          type: "bar",
+          data: { labels: srcTop.map(r => r.source_account || "Unknown"), datasets: [{ label: "Exceptions", data: srcTop.map(r => r.count || 0), backgroundColor: "#ef4444" }] },
+          options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+      }
+
+      if (ctxTreemap) {
+        const srcTop = (summary.mismatch_by_src || []).slice(0,10);
+        glTreemap = new Chart(ctxTreemap, {
+          type: "bar",
+          data: { labels: srcTop.map(r => r.source_account || "Unknown"), datasets: [{ label: "By Source", data: srcTop.map(r => r.count || 0), backgroundColor: srcTop.map((_,i)=>`hsla(${i*35},70%,60%,0.7)`) }] },
+          options: { indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+        });
+      }
     }
 
     function renderTable(id, rows, cols, emptyMsg="No rows") {
@@ -839,6 +1026,8 @@
 
       const mismatchCat = (filtered.mismatch_by_gl || []).map(r => `<td>${r.gl_account || "-"}</td><td>${r.count || 0}</td>`);
       renderTable("mismatch-cat-table", mismatchCat, 2, "No mismatch categories");
+      const mismatchSrc = (filtered.mismatch_by_src || []).map(r => `<td>${r.source_account || "-"}</td><td>${r.count || 0}</td>`);
+      renderTable("mismatch-src-table", mismatchSrc, 2, "No mismatch by source");
     }
 
     function setMode(newMode) {
@@ -895,6 +1084,7 @@
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
+      startProgress();
       setStatus("Working...", "yellow");
       runBtn.disabled = true;
       downloadLink.style.display = "none";
@@ -939,8 +1129,22 @@
         renderIssues([err.message]);
       } finally {
         runBtn.disabled = false;
+        stopProgress();
       }
     });
   </script>
+  <div id="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:998;"></div>
+  <div id="drilldown-modal" style="display:none; position:fixed; top:10%; left:50%; transform:translateX(-50%); width:70%; max-width:900px; background:var(--panel); border:1px solid var(--stroke); border-radius:12px; padding:16px; box-shadow:var(--shadow); z-index:999;">
+    <div class="flex-between" style="margin-bottom:10px;">
+      <div class="section-title"><span></span><span id="drill-title">Drilldown</span></div>
+      <button onclick="closeDrilldown()" style="width:auto; padding:6px 10px;">Close</button>
+    </div>
+    <div class="table-card" style="max-height:420px; overflow:auto;">
+      <table class="status-table" id="drill-table">
+        <thead><tr><th>ID</th><th>Amount diff</th><th>Days diff</th><th>GL</th><th>Source</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
 </body>
 </html>

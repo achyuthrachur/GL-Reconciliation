@@ -146,58 +146,30 @@ def build_excel_report(result: ReconResult, output_path: Path) -> Path:
         dash_ws.write("B2", "All")
         dash_ws.write("B3", "All")
 
-        # Status counts block (rows 8 onward)
+        # Status counts block (rows 8 onward) using StatusCounts table
         dash_ws.write("A8", "Status")
-        dash_ws.write("B8", "Count (filtered)")
-        for idx, status in enumerate(STATUS_ORDER):
-            row = 8 + idx  # zero-based row index; Excel row = row+1
-            dash_ws.write(row, 0, status)
-            formula = (
-                '=COUNTIFS('
-                'ModelTable[status],$A{row},'
-                'ModelTable[gl_account],IF($B$2="All",ModelTable[gl_account],$B$2),'
-                'ModelTable[source_account],IF($B$3="All",ModelTable[source_account],$B$3),'
-                'ModelTable[posting_date],">="&IF($B$4="",DATE(1900,1,1),$B$4),'
-                'ModelTable[posting_date],"<="&IF($B$5="",DATE(9999,12,31),$B$5)'
-                ")"
-            ).format(row=row + 1)
-            dash_ws.write_formula(row, 1, formula, int_format)
+        dash_ws.write("B8", "Count")
+        for idx, row in result.status_counts.iterrows():
+            excel_row = 9 + idx  # 1-based
+            dash_ws.write(excel_row - 1, 0, row["status"])
+            dash_ws.write_number(excel_row - 1, 1, row["count"], int_format)
 
-        # Exceptions by GL (using Lists GL values)
-        start_row_gl = 8
+        # Exceptions by GL (top 8)
         dash_ws.write("D8", "GL Account")
-        dash_ws.write("E8", "Exceptions (filtered)")
-        for idx, gl_val in enumerate(gl_list[1:]):  # skip "All"
-            row = start_row_gl + idx
-            dash_ws.write(row, 3, gl_val)
-            formula = (
-                '=COUNTIFS('
-                'ModelTable[gl_account],$D{row},'
-                'ModelTable[status],"MISMATCH",'
-                'ModelTable[gl_account],IF($B$2="All",ModelTable[gl_account],$B$2),'
-                'ModelTable[source_account],IF($B$3="All",ModelTable[source_account],$B$3),'
-                'ModelTable[posting_date],">="&IF($B$4="",DATE(1900,1,1),$B$4),'
-                'ModelTable[posting_date],"<="&IF($B$5="",DATE(9999,12,31),$B$5)'
-                ')'
-                '+'
-                'COUNTIFS('
-                'ModelTable[gl_account],$D{row},'
-                'ModelTable[status],"UNMATCHED_A",'
-                'ModelTable[gl_account],IF($B$2="All",ModelTable[gl_account],$B$2),'
-                'ModelTable[source_account],IF($B$3="All",ModelTable[source_account],$B$3),'
-                'ModelTable[posting_date],">="&IF($B$4="",DATE(1900,1,1),$B$4),'
-                'ModelTable[posting_date],"<="&IF($B$5="",DATE(9999,12,31),$B$5)'
-                ')'
-            ).format(row=row + 1)
-            dash_ws.write_formula(row, 4, formula, int_format)
+        dash_ws.write("E8", "Exceptions")
+        for idx, row in result.exceptions_by_gl.head(8).reset_index(drop=True).iterrows():
+            excel_row = 9 + idx
+            dash_ws.write(excel_row - 1, 3, row["gl_bucket"])
+            dash_ws.write_number(excel_row - 1, 4, row["count"], int_format)
 
         # Charts
         status_chart = workbook.add_chart({"type": "column"})
+        last_status_row = 8 + len(result.status_counts)
         status_chart.add_series(
             {
                 "name": "Counts by Status",
-                "categories": f"=Dashboard!$A$9:$A${8 + len(STATUS_ORDER)}",
-                "values": f"=Dashboard!$B$9:$B${8 + len(STATUS_ORDER)}",
+                "categories": f"=Dashboard!$A$9:$A${last_status_row}",
+                "values": f"=Dashboard!$B$9:$B${last_status_row}",
                 "fill": {"color": "#2563eb"},
             }
         )
@@ -207,7 +179,7 @@ def build_excel_report(result: ReconResult, output_path: Path) -> Path:
         dash_ws.insert_chart("G2", status_chart)
 
         exc_chart = workbook.add_chart({"type": "bar"})
-        gl_rows = len(gl_list) - 1
+        gl_rows = min(len(result.exceptions_by_gl), 8)
         if gl_rows > 0:
             exc_chart.add_series(
                 {
@@ -223,7 +195,7 @@ def build_excel_report(result: ReconResult, output_path: Path) -> Path:
             dash_ws.insert_chart("G18", exc_chart)
 
         # Notes
-        dash_ws.write("A15", "Filters update charts via COUNTIFS formulas against ModelTable.")
+        dash_ws.write("A15", "Snapshot charts pull from StatusCounts and Exceptions sheets.")
 
         # Shade unmatched sheets red for visibility
         for ws in [unmatched_a_ws, unmatched_b_ws]:
