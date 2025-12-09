@@ -491,10 +491,22 @@
 
       <div id="snapshot-tab" class="analysis-grid tab-panel">
         <div>
-          <div class="canvas-wrap"><canvas id="status-chart" height="180"></canvas></div>
+          <div class="canvas-wrap">
+            <div class="muted" style="font-size:12px; margin-bottom:4px;">Status mix with click-to-filter & drilldown (use reset below to restore).</div>
+            <canvas id="status-chart" height="180"></canvas>
+            <button type="button" id="reset-status" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
+          </div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:14px;">
-            <div class="canvas-wrap"><canvas id="gl-chart" height="140"></canvas></div>
-            <div class="canvas-wrap"><canvas id="src-chart" height="140"></canvas></div>
+            <div class="canvas-wrap">
+              <div class="muted" style="font-size:12px; margin-bottom:4px;">Exceptions by GL (click to drill).</div>
+              <canvas id="gl-chart" height="140"></canvas>
+              <button type="button" id="reset-gl" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
+            </div>
+            <div class="canvas-wrap">
+              <div class="muted" style="font-size:12px; margin-bottom:4px;">Exceptions by Source (click to drill).</div>
+              <canvas id="src-chart" height="140"></canvas>
+              <button type="button" id="reset-src" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
+            </div>
           </div>
         </div>
         <div style="display:grid; gap:12px;">
@@ -525,23 +537,29 @@
             </select>
           </div>
           <canvas id="time-chart" height="200"></canvas>
+          <button type="button" id="reset-time" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
         </div>
         <div class="canvas-wrap">
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">Stacked status by month (heatmap-style).</div>
           <canvas id="heatmap-chart" height="200"></canvas>
         </div>
         <div class="canvas-wrap">
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">Mismatch mix by GL (top categories).</div>
           <canvas id="category-donut" height="200"></canvas>
         </div>
       </div>
 
       <div id="yearly-tab" class="analysis-grid tab-panel" style="display:none;">
         <div class="canvas-wrap">
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">Status trends by year.</div>
           <canvas id="year-status-chart" height="200"></canvas>
         </div>
         <div class="canvas-wrap">
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">GL exceptions by year.</div>
           <canvas id="year-gl-chart" height="200"></canvas>
         </div>
         <div class="canvas-wrap">
+          <div class="muted" style="font-size:12px; margin-bottom:4px;">Source exceptions by year.</div>
           <canvas id="year-src-chart" height="200"></canvas>
         </div>
       </div>
@@ -593,6 +611,12 @@
     const demoStatusEl = document.getElementById("demo-status");
     const loadDemoBtn = document.getElementById("load-demo-btn");
     const themeToggle = document.getElementById("theme-toggle");
+    const resetButtons = {
+      status: document.getElementById("reset-status"),
+      gl: document.getElementById("reset-gl"),
+      src: document.getElementById("reset-src"),
+      time: document.getElementById("reset-time"),
+    };
 
     const KPI_MAP = {
       "total_rows": "kpi-total",
@@ -811,9 +835,9 @@
         },
         options: {
           plugins: {
-            legend: { display: false },
+            legend: { display: true, position: "bottom" },
             zoom: {
-              zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "y" },
+              zoom: { wheel: { enabled: false }, pinch: { enabled: false } },
               pan: { enabled: true, mode: "y" }
             },
             tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}` } }
@@ -840,8 +864,8 @@
         },
         options: {
           plugins: {
-            legend: { display: false },
-            zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "y" }, pan: { enabled: true, mode: "y" } },
+            legend: { display: true, position: "bottom" },
+            zoom: { zoom: { wheel: { enabled: false }, pinch: { enabled: false } }, pan: { enabled: true, mode: "y" } },
             tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}` } }
           },
           onClick: (_evt, elements) => {
@@ -866,8 +890,8 @@
         },
         options: {
           plugins: {
-            legend: { display: false },
-            zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "y" }, pan: { enabled: true, mode: "y" } },
+            legend: { display: true, position: "bottom" },
+            zoom: { zoom: { wheel: { enabled: false }, pinch: { enabled: false } }, pan: { enabled: true, mode: "y" } },
             tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}` } }
           },
           onClick: (_evt, elements) => {
@@ -910,7 +934,7 @@
         options: {
           plugins: {
             legend: { position: "bottom" },
-            zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "xy" }, pan: { enabled: true, mode: "xy" } }
+            zoom: { zoom: { wheel: { enabled: false }, pinch: { enabled: false } }, pan: { enabled: true, mode: "xy" } }
           },
           scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.08)" } }, x: { grid: { color: "rgba(255,255,255,0.05)" } } }
         }
