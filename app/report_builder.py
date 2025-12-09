@@ -80,7 +80,7 @@ def build_vellum_report(result: ReconResult) -> str:
 
     payload = {"inputs": {"analysis_json": _summary_payload(result)}}
     if workflow_deployment_id:
-        url = f"{base_url.rstrip('/')}/v1/workflow-deployments/{workflow_deployment_id}/invoke"
+        url = f"{base_url.rstrip('/')}/v1/workflow-deployments/{workflow_deployment_id}/execute"
     else:
         url = f"{base_url.rstrip('/')}/v1/deployments/{deployment_id}/execute"
     try:
