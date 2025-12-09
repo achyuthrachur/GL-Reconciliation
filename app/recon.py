@@ -80,6 +80,34 @@ class ReconResult:
             if not self.status_counts.empty
             else []
         )
+        mismatch_by_gl = (
+            self.model[self.model["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
+            .groupby("gl_account")
+            .size()
+            .reset_index(name="count")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        mismatch_by_src = (
+            self.model[self.model["status"].isin(["MISMATCH", "UNMATCHED_A", "UNMATCHED_B", "MAPPING_ISSUE"])]
+            .groupby("source_account")
+            .size()
+            .reset_index(name="count")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
+        ts_df = self.model.copy()
+        ts_df["date_for_ts"] = ts_df["posting_date"].combine_first(ts_df["txn_date"])
+        ts_df["month"] = ts_df["date_for_ts"].dt.to_period("M").astype(str)
+        status_ts = (
+            ts_df.dropna(subset=["month"])
+            .groupby(["month", "status"])
+            .size()
+            .reset_index(name="count")
+            .sort_values("month")
+            .replace({np.nan: None, pd.NA: None})
+            .to_dict(orient="records")
+        )
         return {
             "overview": clean_overview(self.overview),
             "status_counts": status_counts_records,
@@ -93,6 +121,9 @@ class ReconResult:
             "exceptions_by_gl": frame_to_records(self.exceptions_by_gl, 15),
             "exceptions_by_src": frame_to_records(self.exceptions_by_src, 15),
             "missing_map_by_source": frame_to_records(self.missing_map_by_source, 15),
+            "mismatch_by_gl": mismatch_by_gl,
+            "mismatch_by_src": mismatch_by_src,
+            "status_time_series": status_ts,
             "params": {
                 "amount_tol": self.params.amount_tol,
                 "date_tol": self.params.date_tol,

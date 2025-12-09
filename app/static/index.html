@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     :root {
@@ -23,6 +24,20 @@
       --success: #22c55e;
       --warning: #f59e0b;
       --stroke: rgba(255,255,255,0.12);
+    }
+    .light {
+      --bg: #f7fafc;
+      --panel: #ffffff;
+      --panel-strong: #f3f4f6;
+      --accent: #2563eb;
+      --accent-2: #0ea5e9;
+      --accent-3: #f59e0b;
+      --text: #0f172a;
+      --muted: #475569;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --warning: #d97706;
+      --stroke: #e2e8f0;
     }
     * { box-sizing: border-box; }
     body {
@@ -268,6 +283,15 @@
       overflow: hidden;
       background: rgba(255,255,255,0.05);
     }
+    .theme-toggle {
+      padding: 8px 12px;
+      border: 1px solid var(--stroke);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
+    }
     .mode-toggle button {
       border: none;
       padding: 10px 14px;
@@ -300,9 +324,10 @@
   <header>
     <div>
       <div class="badge">Live Reconciliation</div>
-      <h1>GL Reconciliation Workspace</h1>
-      <p class="lede">A client-ready console to ingest GL (A), Subledger (B), and mapping, reconcile with tolerance rules, surface KPIs instantly, and export a polished Excel with dashboard and exceptions pivots.</p>
+      <h1>Reconciliation Workspace</h1>
+      <p class="lede">A client-ready console to ingest two datasets plus a mapping, reconcile with tolerance rules, surface KPIs instantly, and export a polished Excel with dashboard and exceptions pivots.</p>
     </div>
+    <button id="theme-toggle" class="theme-toggle">Switch to Light</button>
   </header>
   <main>
     <div class="layout">
@@ -354,13 +379,10 @@
               <input type="date" id="date-to" name="date_to" />
             </div>
           </div>
-          <div style="margin-top:12px; display:flex; align-items:center; gap:10px;">
-            <input type="checkbox" id="generate-report" name="generate_report" checked style="width:16px; height:16px; accent-color:#38bdf8;">
-            <label for="generate-report" style="margin:0;">Generate AI narrative report (requires API key)</label>
-          </div>
-          <div style="margin-top:18px;">
-            <button type="submit" id="run-btn">Run reconciliation</button>
-          </div>
+          <!-- AI narrative toggle hidden -->
+        <div style="margin-top:18px;">
+          <button type="submit" id="run-btn">Run reconciliation</button>
+        </div>
           <div class="steps">
             <div class="step">1. Upload GL / Subledger / Mapping</div>
             <div class="step">2. Set tolerances or use defaults</div>
@@ -442,12 +464,15 @@
             <div class="canvas-wrap"><canvas id="gl-chart" height="140"></canvas></div>
             <div class="canvas-wrap"><canvas id="src-chart" height="140"></canvas></div>
           </div>
+          <div class="canvas-wrap" style="margin-top:14px;">
+            <canvas id="time-chart" height="160"></canvas>
+          </div>
         </div>
         <div style="display:grid; gap:12px;">
           <div class="table-card">
-            <div class="section-title"><span></span>Top mismatches</div>
+            <div class="section-title"><span></span>Top variances</div>
             <table class="status-table" id="mismatch-table">
-              <thead><tr><th>Doc ID</th><th>Amount Δ</th><th>Days Δ</th><th>GL</th><th>Source</th></tr></thead>
+              <thead><tr><th>ID</th><th>Amount diff</th><th>Days diff</th><th>Category</th><th>Counterparty</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -458,16 +483,26 @@
               <tbody></tbody>
             </table>
           </div>
+          <div class="table-card">
+            <div class="section-title"><span></span>Mismatches by category</div>
+            <table class="status-table" id="mismatch-cat-table">
+              <thead><tr><th>Category</th><th>Count</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
 
+    <!-- AI Narrative Report hidden per request -->
+    <!--
     <section class="card" style="margin-top:18px;">
       <div class="section-title"><span></span>AI Narrative Report</div>
       <div class="tagline">Generated on demand when the AI toggle is enabled.</div>
       <div class="report-card" id="report-output">No report yet.</div>
       <div class="issues" id="report-error"></div>
     </section>
+    -->
   </main>
   <script>
     const API_BASE = window.location.origin.startsWith("file:")
@@ -484,6 +519,7 @@
     const modeDemoBtn = document.getElementById("mode-demo");
     const demoStatusEl = document.getElementById("demo-status");
     const loadDemoBtn = document.getElementById("load-demo-btn");
+    const themeToggle = document.getElementById("theme-toggle");
 
     const KPI_MAP = {
       "total_rows": "kpi-total",
@@ -543,11 +579,27 @@
       });
     }
 
+    function renderFilters() {
+      const active = [];
+      if (filters.status) active.push(`Status: ${filters.status}`);
+      if (filters.gl) active.push(`GL: ${filters.gl}`);
+      if (filters.src) active.push(`Source: ${filters.src}`);
+      const container = document.getElementById("issues-list");
+      if (active.length > 0) {
+        const info = document.createElement("li");
+        info.className = "muted";
+        info.textContent = `Filters active → ${active.join(" | ")}`;
+        container.appendChild(info);
+      }
+    }
+
     // Chart instances and mode state
-    let statusChart, glChart, srcChart;
+    let statusChart, glChart, srcChart, timeChart;
     let mode = "upload";
     let demoLoaded = false;
     let latestAnalysisJson = null;
+    let theme = "dark";
+    const filters = { status: null, gl: null, src: null };
 
     function destroyChart(chart) {
       if (chart) chart.destroy();
@@ -558,11 +610,13 @@
       const ctxStatus = document.getElementById("status-chart")?.getContext("2d");
       const ctxGl = document.getElementById("gl-chart")?.getContext("2d");
       const ctxSrc = document.getElementById("src-chart")?.getContext("2d");
-      if (!ctxStatus || !ctxGl || !ctxSrc) return;
+      const ctxTime = document.getElementById("time-chart")?.getContext("2d");
+      if (!ctxStatus || !ctxGl || !ctxSrc || !ctxTime) return;
 
       destroyChart(statusChart);
       destroyChart(glChart);
       destroyChart(srcChart);
+      destroyChart(timeChart);
 
       const statusData = summary.status_counts || [];
       statusChart = new Chart(ctxStatus, {
@@ -576,7 +630,25 @@
             borderRadius: 6
           }]
         },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } } }
+        options: {
+          plugins: {
+            legend: { display: false },
+            zoom: {
+              zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "y" },
+              pan: { enabled: true, mode: "y" }
+            },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}` } }
+          },
+          onClick: (_evt, elements) => {
+            if (elements.length > 0) {
+              const idx = elements[0].index;
+              const sel = statusData[idx]?.status || null;
+              filters.status = filters.status === sel ? null : sel;
+              renderAnalysis(summary);
+            }
+          },
+          scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } }
+        }
       });
 
       const glData = (summary.exceptions_by_gl || []).slice(0, 8);
@@ -586,7 +658,22 @@
           labels: glData.map(d => d.gl_bucket || d.gl_account || d.source_bucket || ""),
           datasets: [{ label: "Exceptions by GL", data: glData.map(d => d.count), backgroundColor: "#f97316", borderRadius: 6 }]
         },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } } }
+        options: {
+          plugins: {
+            legend: { display: false },
+            zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "y" }, pan: { enabled: true, mode: "y" } },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}` } }
+          },
+          onClick: (_evt, elements) => {
+            if (elements.length > 0) {
+              const idx = elements[0].index;
+              const sel = glData[idx]?.gl_bucket || glData[idx]?.gl_account || null;
+              filters.gl = filters.gl === sel ? null : sel;
+              renderAnalysis(summary);
+            }
+          },
+          scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } }
+        }
       });
 
       const srcData = (summary.exceptions_by_src || []).slice(0, 8);
@@ -596,7 +683,53 @@
           labels: srcData.map(d => d.source_bucket || d.source_account || ""),
           datasets: [{ label: "Exceptions by Source", data: srcData.map(d => d.count), backgroundColor: "#22c55e", borderRadius: 6 }]
         },
-        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } } }
+        options: {
+          plugins: {
+            legend: { display: false },
+            zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "y" }, pan: { enabled: true, mode: "y" } },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y}` } }
+          },
+          onClick: (_evt, elements) => {
+            if (elements.length > 0) {
+              const idx = elements[0].index;
+              const sel = srcData[idx]?.source_bucket || srcData[idx]?.source_account || null;
+              filters.src = filters.src === sel ? null : sel;
+              renderAnalysis(summary);
+            }
+          },
+          scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.06)" } }, x: { grid: { display: false } } }
+        }
+      });
+
+      const ts = summary.status_time_series || [];
+      const months = Array.from(new Set(ts.map(r => r.month))).sort();
+      const seriesByStatus = {};
+      ts.forEach(r => {
+        seriesByStatus[r.status] = seriesByStatus[r.status] || {};
+        seriesByStatus[r.status][r.month] = r.count;
+      });
+      const datasets = Object.entries(seriesByStatus).map(([status, counts], idx) => {
+        const colorPalette = ["#38bdf8","#f97316","#22c55e","#a855f7","#facc15","#ef4444"];
+        const color = colorPalette[idx % colorPalette.length];
+        return {
+          label: status,
+          data: months.map(m => counts[m] || 0),
+          borderColor: color,
+          backgroundColor: color + "33",
+          tension: 0.25,
+          fill: true,
+        };
+      });
+      timeChart = new Chart(ctxTime, {
+        type: "line",
+        data: { labels: months, datasets },
+        options: {
+          plugins: {
+            legend: { position: "bottom" },
+            zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: "xy" }, pan: { enabled: true, mode: "xy" } }
+          },
+          scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.08)" } }, x: { grid: { color: "rgba(255,255,255,0.05)" } } }
+        }
       });
     }
 
@@ -615,19 +748,23 @@
     }
 
     function renderAnalysis(summary) {
-      renderCharts(summary);
+      const filtered = applyFilters(summary);
+      renderCharts(filtered);
 
-      const mismatches = (summary.mismatched_amount_sample || []).map(r => {
+      const mismatches = (filtered.mismatched_amount_sample || []).map(r => {
         const amt = (r.amount_diff ?? "").toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
         const days = r.days_diff ?? "";
-        return `<td>${r.doc_id || "-"}</td><td>${amt}</td><td>${days}</td><td>${r.gl_account || "-"}</td><td>${r.source_account || "-"}</td>`;
+        return `<td>${r.doc_id || r.ref_id || "-"}</td><td>${amt}</td><td>${days}</td><td>${r.gl_account || "-"}</td><td>${r.counterparty || r.source_account || "-"}</td>`;
       });
       renderTable("mismatch-table", mismatches, 5, "No mismatches");
 
-      const missingMap = (summary.missing_map_by_source || []).map(r => {
+      const missingMap = (filtered.missing_map_by_source || []).map(r => {
         return `<td>${r.source_account || "-"}</td><td>${r.count || 0}</td>`;
       });
       renderTable("missing-map-table", missingMap, 2, "No missing mappings");
+
+      const mismatchCat = (filtered.mismatch_by_gl || []).map(r => `<td>${r.gl_account || "-"}</td><td>${r.count || 0}</td>`);
+      renderTable("mismatch-cat-table", mismatchCat, 2, "No mismatch categories");
     }
 
     function setMode(newMode) {
@@ -658,6 +795,16 @@
       demoStatusEl.textContent = "Demo data loaded";
       setStatus("Ready", "green");
     });
+
+    function applyTheme(newTheme) {
+      theme = newTheme;
+      document.body.classList.toggle("light", theme === "light");
+      themeToggle.textContent = theme === "light" ? "Switch to Dark" : "Switch to Light";
+    }
+    themeToggle.addEventListener("click", () => {
+      applyTheme(theme === "light" ? "dark" : "light");
+    });
+    applyTheme("dark");
 
     downloadJsonBtn.addEventListener("click", () => {
       if (!latestAnalysisJson) return;
@@ -702,6 +849,7 @@
         updateKPIs(summary.overview);
         renderStatusTable(summary.status_counts);
         renderIssues(summary.issues, summary.data_quality_flags);
+        renderFilters();
         renderAnalysis(summary);
         if (data.download_url) {
           downloadLink.href = `${API_BASE}${data.download_url}`;
@@ -710,19 +858,6 @@
         }
         latestAnalysisJson = data.analysis_json || null;
         downloadJsonBtn.style.display = latestAnalysisJson ? "inline-flex" : "none";
-        const reportContainer = document.getElementById("report-output");
-        const reportError = document.getElementById("report-error");
-        if (data.report_markdown) {
-          const html = marked.parse(data.report_markdown);
-          reportContainer.innerHTML = html;
-          reportError.textContent = "";
-        } else if (data.report_error) {
-          reportContainer.innerHTML = "";
-          reportError.textContent = data.report_error;
-        } else {
-          reportContainer.innerHTML = "";
-          reportError.textContent = "";
-        }
         setStatus("Complete", "green");
       } catch (err) {
         console.error(err);
@@ -736,3 +871,35 @@
   </script>
 </body>
 </html>
+    function applyFilters(summary) {
+      const filtered = JSON.parse(JSON.stringify(summary));
+      const statusFilter = filters.status;
+      const glFilter = filters.gl;
+      const srcFilter = filters.src;
+
+      // Filter mismatched sample
+      if (filtered.mismatched_amount_sample) {
+        filtered.mismatched_amount_sample = filtered.mismatched_amount_sample.filter(r => {
+          const statusOk = statusFilter ? r.status === statusFilter : true;
+          const glOk = glFilter ? String(r.gl_account || "") === String(glFilter) : true;
+          const srcOk = srcFilter ? String(r.source_account || "") === String(srcFilter) : true;
+          return statusOk && glOk && srcOk;
+        });
+      }
+
+      // Filter counts for charts
+      if (filtered.status_counts && statusFilter) {
+        filtered.status_counts = filtered.status_counts.filter(s => s.status === statusFilter);
+      }
+      if (filtered.exceptions_by_gl && glFilter) {
+        filtered.exceptions_by_gl = filtered.exceptions_by_gl.filter(g => String(g.gl_bucket || g.gl_account || "") === String(glFilter));
+      }
+      if (filtered.exceptions_by_src && srcFilter) {
+        filtered.exceptions_by_src = filtered.exceptions_by_src.filter(g => String(g.source_bucket || g.source_account || "") === String(srcFilter));
+      }
+      // Filter time series
+      if (filtered.status_time_series && statusFilter) {
+        filtered.status_time_series = filtered.status_time_series.filter(r => r.status === statusFilter);
+      }
+      return filtered;
+    }
