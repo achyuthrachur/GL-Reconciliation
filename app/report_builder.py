@@ -40,6 +40,10 @@ def _summary_payload(result: ReconResult) -> Dict:
     )
     return _sanitize(summary)
 
+def build_analysis_payload(result: ReconResult) -> Dict:
+    """Public helper for generating the sanitized analysis JSON."""
+    return _summary_payload(result)
+
 
 def _sanitize(obj):
     """Recursively make data JSON-serializable (timestamps -> iso, NaN -> None)."""
@@ -67,14 +71,18 @@ def build_report(result: ReconResult) -> str:
 def build_vellum_report(result: ReconResult) -> str:
     api_key = os.environ.get("VELLUM_API_KEY")
     deployment_id = os.environ.get("VELLUM_DEPLOYMENT_ID")
+    workflow_deployment_id = os.environ.get("VELLUM_WORKFLOW_DEPLOYMENT_ID")
     base_url = os.environ.get("VELLUM_BASE_URL", "https://api.vellum.ai")
     if not api_key:
         raise LLMUnavailable("VELLUM_API_KEY is not set")
-    if not deployment_id:
-        raise LLMUnavailable("VELLUM_DEPLOYMENT_ID is not set")
+    if not (deployment_id or workflow_deployment_id):
+        raise LLMUnavailable("VELLUM_DEPLOYMENT_ID or VELLUM_WORKFLOW_DEPLOYMENT_ID is not set")
 
     payload = {"inputs": {"analysis_json": _summary_payload(result)}}
-    url = f"{base_url.rstrip('/')}/v1/deployments/{deployment_id}/execute"
+    if workflow_deployment_id:
+        url = f"{base_url.rstrip('/')}/v1/workflow-deployments/{workflow_deployment_id}/invoke"
+    else:
+        url = f"{base_url.rstrip('/')}/v1/deployments/{deployment_id}/execute"
     try:
         resp = httpx.post(url, headers={"Authorization": f"Bearer {api_key}"}, json=payload, timeout=30)
     except httpx.HTTPError as exc:  # noqa: BLE001
@@ -123,7 +131,10 @@ def build_openai_report(result: ReconResult, model: str = "gpt-4o-mini") -> str:
                 row.get("source_account", ""),
             ]
         )
-    mismatch_table = _fmt_table(mismatch_rows, ["Doc/Ref", "Amount Δ", "Days Δ", "GL", "Source"])
+    mismatch_table = _fmt_table(
+        mismatch_rows,
+        ["Doc/Ref", "Amount diff", "Days diff", "GL", "Source"],
+    )
     missing_table = _fmt_table(
         [[m.get("source_account", ""), m.get("count", 0)] for m in missing_map],
         ["Source Account", "Missing map count"],

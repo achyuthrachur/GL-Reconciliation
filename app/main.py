@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from .config import ReconParams
 from .excel_report import build_excel_report
 from .recon import run_reconciliation
-from .report_builder import LLMUnavailable, build_report
+from .report_builder import LLMUnavailable, build_report, build_analysis_payload
 
 load_dotenv()
 
@@ -103,6 +103,7 @@ async def reconcile(
         "summary": result.jsonable_summary(),
         "report_markdown": report_markdown,
         "report_error": report_error,
+        "analysis_json": build_analysis_payload(result),
     }
 
 
@@ -168,4 +169,5 @@ async def reconcile_demo(
         "report_markdown": report_markdown,
         "report_error": report_error,
         "demo": True,
+        "analysis_json": build_analysis_payload(result),
     }

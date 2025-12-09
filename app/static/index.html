@@ -376,6 +376,7 @@
             <div class="tagline">Auto-refresh after each run. Download-ready Excel is one click away.</div>
           </div>
           <a id="download-link" class="download-link" href="#" style="display:none;">Download Excel</a>
+          <button id="download-json" class="download" style="display:none; padding:8px 12px; width:auto;">Download JSON</button>
         </div>
         <div class="divider"></div>
         <div class="status-grid" id="kpi-grid">
@@ -477,6 +478,7 @@
     const runBtn = document.getElementById("run-btn");
     const statusChip = document.getElementById("status-chip");
     const downloadLink = document.getElementById("download-link");
+    const downloadJsonBtn = document.getElementById("download-json");
     const issuesList = document.getElementById("issues-list");
     const modeUploadBtn = document.getElementById("mode-upload");
     const modeDemoBtn = document.getElementById("mode-demo");
@@ -545,6 +547,7 @@
     let statusChart, glChart, srcChart;
     let mode = "upload";
     let demoLoaded = false;
+    let latestAnalysisJson = null;
 
     function destroyChart(chart) {
       if (chart) chart.destroy();
@@ -656,6 +659,19 @@
       setStatus("Ready", "green");
     });
 
+    downloadJsonBtn.addEventListener("click", () => {
+      if (!latestAnalysisJson) return;
+      const blob = new Blob([JSON.stringify(latestAnalysisJson, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "analysis_payload.json";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       setStatus("Working...", "yellow");
@@ -692,6 +708,8 @@
           downloadLink.style.display = "inline-block";
           downloadLink.textContent = "Download Excel";
         }
+        latestAnalysisJson = data.analysis_json || null;
+        downloadJsonBtn.style.display = latestAnalysisJson ? "inline-flex" : "none";
         const reportContainer = document.getElementById("report-output");
         const reportError = document.getElementById("report-error");
         if (data.report_markdown) {
