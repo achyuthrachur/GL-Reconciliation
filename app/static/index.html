@@ -311,6 +311,7 @@
       background: transparent;
       width: 100% !important;
       height: auto !important;
+      max-height: 320px;
     }
     .table-card {
       background: rgba(255,255,255,0.02);
@@ -475,11 +476,12 @@
         </div>
         <div class="divider"></div>
         <div class="status-key">
-          <div><b>Exact Match</b>: GL and source line up perfectly on amount and date, and the mapping agrees with the GL account.</div>
-          <div><b>Near Match</b>: Within tolerance for amount/date and mapping agrees; usually low-risk items to clear quickly.</div>
-          <div><b>Mapping Issue</b>: Numbers are within tolerance, but the mapped GL account doesn’t match the GL on the transaction.</div>
-          <div><b>Mismatch</b>: Outside tolerance or fails other rules (amount/date gaps, mapping conflicts) and needs investigation.</div>
-          <div><b>Unmatched A / B</b>: Appears only in Dataset A (GL) or only in Dataset B (Source/Subledger); likely missing entry on the other side.</div>
+          <div><b>Exact</b>: GL and source align on amount and date, and the mapping agrees with the GL account.</div>
+          <div><b>Near Match - Date</b>: Amount matches; date is within tolerance (e.g., timing difference).</div>
+          <div><b>Near Match - Amount</b>: Date matches; amount difference is within the set tolerance.</div>
+          <div><b>Mismatch - Date</b>: Amount matches, but the date gap exceeds tolerance.</div>
+          <div><b>Mismatch - Amount</b>: Amount difference exceeds tolerance (mapping issues are counted here and noted in data quality).</div>
+          <div><b>Only in Ledger / Subledger</b>: Appears only in Dataset A (GL) or only in Dataset B (Source/Subledger); likely missing entry on the other side.</div>
         </div>
         <div class="status-grid" id="kpi-grid">
           <div class="pill">
@@ -545,19 +547,19 @@
       <div id="snapshot-tab" class="analysis-grid tab-panel">
         <div>
           <div class="canvas-wrap">
-            <div class="desc">Status mix across all reconciled rows. Click a status to filter all charts and see a yearly summary; reset returns to the full population.</div>
-            <canvas id="status-chart" height="180"></canvas>
+          <div class="desc">Status mix across all reconciled rows. Click a status to filter all charts and see a yearly summary; reset returns to the full population. Allowed categories only: Exact, Near Match (Date/Amount), Mismatch (Date/Amount), Only in Ledger, Only in Subledger.</div>
+          <canvas id="status-chart" height="140"></canvas>
             <button type="button" id="reset-status" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
           </div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:14px;">
             <div class="canvas-wrap">
               <div class="desc">Exceptions by GL account. Click a bar to drill into that GL’s rows and filter the dashboard.</div>
-              <canvas id="gl-chart" height="140"></canvas>
+              <canvas id="gl-chart" height="130"></canvas>
               <button type="button" id="reset-gl" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
             </div>
             <div class="canvas-wrap">
               <div class="desc">Exceptions by Source/Subledger account. Click to drill and filter.</div>
-              <canvas id="src-chart" height="140"></canvas>
+              <canvas id="src-chart" height="130"></canvas>
               <button type="button" id="reset-src" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
             </div>
           </div>
@@ -581,7 +583,7 @@
       </div>
 
       <div id="trends-tab" class="analysis-grid tab-panel" style="display:none;">
-        <div class="canvas-wrap" style="grid-column: span 2;">
+        <div class="canvas-wrap" style="grid-column: span 2; max-height: 320px;">
           <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content: space-between; align-items:center; margin-bottom:6px;">
             <span class="desc">Status counts over time (monthly/weekly). Filter to a single year or a custom month range.</span>
             <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
@@ -597,42 +599,42 @@
               <button type="button" id="ts-apply" style="width:auto; padding:6px 10px;">Apply</button>
             </div>
           </div>
-          <canvas id="time-chart" height="160"></canvas>
+          <canvas id="time-chart" height="140"></canvas>
           <button type="button" id="reset-time" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
         </div>
         <div class="canvas-wrap">
           <div class="desc">Stacked status by month — see seasonality and mix shifts at a glance.</div>
-          <canvas id="heatmap-chart" height="200"></canvas>
+          <canvas id="heatmap-chart" height="160"></canvas>
         </div>
         <div class="canvas-wrap">
           <div class="desc">Mismatch mix by GL (top categories) to spot concentration.</div>
-          <canvas id="category-donut" height="200"></canvas>
+          <canvas id="category-donut" height="170"></canvas>
         </div>
       </div>
 
       <div id="yearly-tab" class="analysis-grid tab-panel" style="display:none;">
         <div class="canvas-wrap">
           <div class="desc">Status trends by year — stacked to show mix and volume changes.</div>
-          <canvas id="year-status-chart" height="200"></canvas>
+          <canvas id="year-status-chart" height="170"></canvas>
         </div>
         <div class="canvas-wrap">
           <div class="desc">GL exceptions by year — identify persistent problem accounts.</div>
-          <canvas id="year-gl-chart" height="200"></canvas>
+          <canvas id="year-gl-chart" height="170"></canvas>
         </div>
         <div class="canvas-wrap">
           <div class="desc">Source exceptions by year — highlights recurring source-side issues.</div>
-          <canvas id="year-src-chart" height="200"></canvas>
+          <canvas id="year-src-chart" height="170"></canvas>
         </div>
       </div>
 
       <div id="variances-tab" class="analysis-grid tab-panel" style="display:none;">
         <div class="canvas-wrap">
           <div class="desc">Total absolute variance by GL account (bars). Sorts by dollar impact to highlight hotspots.</div>
-          <canvas id="variance-gl-chart" height="220"></canvas>
+          <canvas id="variance-gl-chart" height="170"></canvas>
         </div>
         <div class="canvas-wrap">
           <div class="desc">Total absolute variance by Source account (bars). Use to spot recurring source-side issues.</div>
-          <canvas id="variance-src-chart" height="220"></canvas>
+          <canvas id="variance-src-chart" height="170"></canvas>
         </div>
         <div class="table-card">
           <div class="section-title"><span></span>Mismatches by GL</div>
@@ -697,22 +699,24 @@
     };
 
     const STATUS_COLORS = {
-      "EXACT_MATCH": "green",
-      "NEAR_MATCH": "yellow",
-      "MAPPING_ISSUE": "orange",
-      "MISMATCH": "red",
-      "UNMATCHED_A": "red",
-      "UNMATCHED_B": "red"
+      "EXACT": "green",
+      "NEAR MATCH - DATE": "yellow",
+      "NEAR MATCH - AMOUNT": "yellow",
+      "MISMATCH - DATE": "orange",
+      "MISMATCH - AMOUNT": "red",
+      "ONLY PRESENT IN LEDGER": "red",
+      "ONLY PRESENT IN SUBLEDGER": "red"
     };
 
     function prettyStatus(status) {
       const map = {
-        "EXACT_MATCH": "Exact Match",
-        "NEAR_MATCH": "Near Match",
-        "MAPPING_ISSUE": "Mapping Issue",
-        "MISMATCH": "Mismatch",
-        "UNMATCHED_A": "Unmatched A",
-        "UNMATCHED_B": "Unmatched B",
+        "EXACT": "Exact",
+        "NEAR MATCH - DATE": "Near Match - Date",
+        "NEAR MATCH - AMOUNT": "Near Match - Amount",
+        "MISMATCH - DATE": "Mismatch - Date",
+        "MISMATCH - AMOUNT": "Mismatch - Amount",
+        "ONLY PRESENT IN LEDGER": "Only in Ledger",
+        "ONLY PRESENT IN SUBLEDGER": "Only in Subledger",
       };
       return map[status] || status;
     }
@@ -943,6 +947,7 @@
           }]
         },
         options: {
+          maintainAspectRatio: false,
           plugins: {
             legend: { display: true, position: "bottom" },
             zoom: {
@@ -973,6 +978,7 @@
           datasets: [{ label: "Exceptions by GL", data: glData.map(d => d.count), backgroundColor: "#f97316", borderRadius: 6 }]
         },
         options: {
+          maintainAspectRatio: false,
           plugins: {
             legend: { display: true, position: "bottom" },
             zoom: { zoom: { wheel: { enabled: false }, pinch: { enabled: false } }, pan: { enabled: true, mode: "y" } },
@@ -1000,6 +1006,7 @@
           datasets: [{ label: "Exceptions by Source", data: srcData.map(d => d.count), backgroundColor: "#22c55e", borderRadius: 6 }]
         },
         options: {
+          maintainAspectRatio: false,
           plugins: {
             legend: { display: true, position: "bottom" },
             zoom: { zoom: { wheel: { enabled: false }, pinch: { enabled: false } }, pan: { enabled: true, mode: "y" } },
@@ -1058,6 +1065,7 @@
         type: "line",
         data: { labels: months, datasets },
         options: {
+          maintainAspectRatio: false,
           plugins: {
             legend: { position: "bottom" },
             zoom: { zoom: { wheel: { enabled: false }, pinch: { enabled: false } }, pan: { enabled: true, mode: "xy" } }
@@ -1085,6 +1093,7 @@
             }))
           },
           options: {
+            maintainAspectRatio: false,
             plugins: { legend: { position: "bottom" } },
             scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
           }
@@ -1182,7 +1191,7 @@
         varianceGlChart = new Chart(ctxVarGl, {
           type: "bar",
           data: { labels: topGlVar.map(r => r.gl_bucket || "Unknown"), datasets: [{ label: "Total abs variance", data: topGlVar.map(r => r.total_abs_diff || 0), backgroundColor: topGlVar.map((_,i)=>`hsla(${i*40},70%,55%,0.8)`) }] },
-          options: { indexAxis: "y", plugins: { legend: { display: true, position: "bottom" }, tooltip: { callbacks: { label: ctx => ` $${(ctx.parsed.x||0).toLocaleString()}` } } }, scales: { x: { beginAtZero: true } } }
+          options: { maintainAspectRatio: false, indexAxis: "y", plugins: { legend: { display: true, position: "bottom" }, tooltip: { callbacks: { label: ctx => ` $${(ctx.parsed.x||0).toLocaleString()}` } } }, scales: { x: { beginAtZero: true } } }
         });
       }
       if (ctxVarSrc) {
@@ -1190,7 +1199,7 @@
         varianceSrcChart = new Chart(ctxVarSrc, {
           type: "bar",
           data: { labels: topSrcVar.map(r => r.source_bucket || "Unknown"), datasets: [{ label: "Total abs variance", data: topSrcVar.map(r => r.total_abs_diff || 0), backgroundColor: topSrcVar.map((_,i)=>`hsla(${i*35+180},70%,55%,0.8)`) }] },
-          options: { indexAxis: "y", plugins: { legend: { display: true, position: "bottom" }, tooltip: { callbacks: { label: ctx => ` $${(ctx.parsed.x||0).toLocaleString()}` } } }, scales: { x: { beginAtZero: true } } }
+          options: { maintainAspectRatio: false, indexAxis: "y", plugins: { legend: { display: true, position: "bottom" }, tooltip: { callbacks: { label: ctx => ` $${(ctx.parsed.x||0).toLocaleString()}` } } }, scales: { x: { beginAtZero: true } } }
         });
       }
     }

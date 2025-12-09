@@ -43,12 +43,13 @@ def _write_table_sheet(
 def build_excel_report(result: ReconResult, output_path: Path) -> Path:
     output_path = Path(output_path)
     status_colors = {
-        "EXACT_MATCH": "#d9ead3",
-        "NEAR_MATCH": "#fff2cc",
-        "MAPPING_ISSUE": "#f9cb9c",
-        "MISMATCH": "#f4cccc",
-        "UNMATCHED_A": "#f4cccc",
-        "UNMATCHED_B": "#f4cccc",
+        "EXACT": "#d9ead3",
+        "NEAR MATCH - DATE": "#fff2cc",
+        "NEAR MATCH - AMOUNT": "#fff2cc",
+        "MISMATCH - DATE": "#f9cb9c",
+        "MISMATCH - AMOUNT": "#f4cccc",
+        "ONLY PRESENT IN LEDGER": "#f4cccc",
+        "ONLY PRESENT IN SUBLEDGER": "#f4cccc",
     }
 
     with pd.ExcelWriter(output_path, engine="xlsxwriter", datetime_format="yyyy-mm-dd") as writer:

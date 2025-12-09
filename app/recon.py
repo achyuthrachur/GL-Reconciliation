@@ -39,12 +39,13 @@ SRC_COLUMNS = [
 MAP_COLUMNS = ["source_account", "gl_account"]
 
 STATUS_ORDER = [
-    "EXACT_MATCH",
-    "NEAR_MATCH",
-    "MAPPING_ISSUE",
-    "MISMATCH",
-    "UNMATCHED_A",
-    "UNMATCHED_B",
+    "EXACT",
+    "NEAR MATCH - DATE",
+    "NEAR MATCH - AMOUNT",
+    "MISMATCH - DATE",
+    "MISMATCH - AMOUNT",
+    "ONLY PRESENT IN LEDGER",
+    "ONLY PRESENT IN SUBLEDGER",
 ]
 
 
@@ -361,6 +362,8 @@ def run_reconciliation(
 
     merged["amount_diff"] = merged["amount_A"].fillna(0) - merged["amount_B"].fillna(0)
     merged["days_diff"] = (merged["posting_date"] - merged["txn_date"]).dt.days
+    merged["amount_diff"] = pd.to_numeric(merged["amount_diff"], errors="coerce")
+    merged["days_diff"] = pd.to_numeric(merged["days_diff"], errors="coerce")
 
     a_exists = merged["doc_id"].notna()
     b_exists = merged["ref_id"].notna()
@@ -374,40 +377,77 @@ def run_reconciliation(
     within_date = merged["days_diff"].abs() <= params.date_tol
     both_exist = a_exists & b_exists
 
-    merged["status"] = "MISMATCH"
-    merged.loc[~a_exists & b_exists, "status"] = "UNMATCHED_B"
-    merged.loc[a_exists & ~b_exists, "status"] = "UNMATCHED_A"
-    merged.loc[both_exist & mapping_ok_series & (merged["amount_diff"] == 0) & (merged["days_diff"] == 0), "status"] = (
-        "EXACT_MATCH"
-    )
-    merged.loc[both_exist & mapping_ok_series & within_amount & within_date & (merged["status"] != "EXACT_MATCH"), "status"] = (
-        "NEAR_MATCH"
-    )
-    merged.loc[both_exist & (~mapping_ok_series) & within_amount & within_date, "status"] = "MAPPING_ISSUE"
+    merged["status"] = "MISMATCH - AMOUNT"
+    merged["status"] = merged["status"].astype(object)
+    merged.loc[~a_exists & b_exists, "status"] = "ONLY PRESENT IN SUBLEDGER"
+    merged.loc[a_exists & ~b_exists, "status"] = "ONLY PRESENT IN LEDGER"
+    merged.loc[both_exist & mapping_ok_series & (merged["amount_diff"] == 0) & (merged["days_diff"] == 0), "status"] = "EXACT"
+    merged.loc[
+        both_exist
+        & mapping_ok_series
+        & (merged["amount_diff"] == 0)
+        & within_date
+        & (merged["days_diff"] != 0)
+        & (merged["status"] != "EXACT")
+    ] = "NEAR MATCH - DATE"
+    merged.loc[
+        both_exist
+        & mapping_ok_series
+        & (merged["days_diff"] == 0)
+        & within_amount
+        & (merged["amount_diff"] != 0)
+        & (merged["status"] != "EXACT")
+    ] = "NEAR MATCH - AMOUNT"
+    merged.loc[
+        both_exist
+        & mapping_ok_series
+        & (merged["amount_diff"] == 0)
+        & (~within_date)
+        & (merged["status"].str.startswith("MISMATCH") == False)
+    ] = "MISMATCH - DATE"
+    merged.loc[
+        both_exist
+        & mapping_ok_series
+        & (~within_amount)
+    ] = "MISMATCH - AMOUNT"
 
-    # Data quality check
+    # Mapping mismatches: keep status in allowed set but surface as data quality
     dq_flags: List[str] = []
+    mapping_conflicts = merged[both_exist & (~mapping_ok_series)]
+    if not mapping_conflicts.empty:
+        examples = mapping_conflicts.head(5)[["doc_id", "ref_id", "gl_account", "mapped_gl_account"]].to_dict(orient="records")
+        dq_flags.append(f"Mapping mismatches detected between GL and mapped account (examples: {examples})")
+        merged.loc[mapping_conflicts.index, "status"] = "MISMATCH - AMOUNT"
+
+    invalid_status = merged[~merged["status"].isin(STATUS_ORDER)]
+    if not invalid_status.empty:
+        dq_flags.append("Unexpected statuses detected; review reconciliation rules.")
 
     status_counts = build_status_counts(merged["status"])
 
+    def _count(status_label: str) -> int:
+        row = status_counts[status_counts["status"] == status_label]
+        return int(row["count"].iloc[0]) if not row.empty else 0
+
     overview = {
         "total_rows": int(len(merged)),
-        "exact_matches": int(status_counts[status_counts["status"] == "EXACT_MATCH"]["count"].iloc[0]),
-        "near_matches": int(status_counts[status_counts["status"] == "NEAR_MATCH"]["count"].iloc[0]),
-        "mapping_issues": int(status_counts[status_counts["status"] == "MAPPING_ISSUE"]["count"].iloc[0]),
-        "mismatches": int(status_counts[status_counts["status"] == "MISMATCH"]["count"].iloc[0]),
-        "unmatched_a": int(status_counts[status_counts["status"] == "UNMATCHED_A"]["count"].iloc[0]),
-        "unmatched_b": int(status_counts[status_counts["status"] == "UNMATCHED_B"]["count"].iloc[0]),
+        "exact_matches": _count("EXACT"),
+        "near_matches": _count("NEAR MATCH - DATE") + _count("NEAR MATCH - AMOUNT"),
+        "mapping_issues": _count("MISMATCH - AMOUNT") if mapping_conflicts is not None else 0,
+        "mismatches": _count("MISMATCH - DATE") + _count("MISMATCH - AMOUNT"),
+        "unmatched_a": _count("ONLY PRESENT IN LEDGER"),
+        "unmatched_b": _count("ONLY PRESENT IN SUBLEDGER"),
         "amount_tol": params.amount_tol,
         "date_tol": params.date_tol,
     }
 
+    amt_series = pd.to_numeric(merged["amount_diff"], errors="coerce")
     mismatched_amount = merged[
-        merged["status"].isin(["MISMATCH", "MAPPING_ISSUE"])
-        & merged["amount_diff"].abs().gt(params.amount_tol)
+        amt_series.abs().gt(params.amount_tol)
+        & merged["status"].isin(["MISMATCH - AMOUNT", "MISMATCH - DATE"])
     ]
-    unmatched_a = merged[merged["status"] == "UNMATCHED_A"]
-    unmatched_b = merged[merged["status"] == "UNMATCHED_B"]
+    unmatched_a = merged[merged["status"] == "ONLY PRESENT IN LEDGER"]
+    unmatched_b = merged[merged["status"] == "ONLY PRESENT IN SUBLEDGER"]
 
     # Exceptions pivots
     def gl_label(row) -> str:
@@ -417,7 +457,7 @@ def run_reconciliation(
             return str(row["mapped_gl_account"])
         return "Unmapped"
 
-    exc_gl_df = merged[merged["status"].isin(["MISMATCH", "UNMATCHED_A"])].copy()
+    exc_gl_df = merged[merged["status"].isin(["MISMATCH - AMOUNT", "MISMATCH - DATE", "ONLY PRESENT IN LEDGER"])].copy()
     exc_gl_df["gl_bucket"] = exc_gl_df.apply(gl_label, axis=1)
     exceptions_by_gl = (
         exc_gl_df.groupby("gl_bucket")
@@ -426,7 +466,7 @@ def run_reconciliation(
         .sort_values("count", ascending=False)
     )
 
-    exc_src_df = merged[merged["status"].isin(["MISMATCH", "UNMATCHED_B"])].copy()
+    exc_src_df = merged[merged["status"].isin(["MISMATCH - AMOUNT", "MISMATCH - DATE", "ONLY PRESENT IN SUBLEDGER"])].copy()
     exc_src_df["source_bucket"] = exc_src_df["source_account"].fillna("Unknown").astype(str)
     exceptions_by_src = (
         exc_src_df.groupby("source_bucket")
