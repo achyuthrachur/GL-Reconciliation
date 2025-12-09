@@ -445,11 +445,11 @@
         </div>
         <div class="divider"></div>
         <div class="status-key">
-          <div><b>Exact Match</b>: amounts/dates align exactly and mapping matches.</div>
-          <div><b>Near Match</b>: amounts/dates within tolerances and mapping matches.</div>
-          <div><b>Mapping Issue</b>: within tolerances but GL vs mapped account differs.</div>
-          <div><b>Mismatch</b>: outside tolerances or other unresolved differences.</div>
-          <div><b>Unmatched A / B</b>: only present in Dataset A or Dataset B.</div>
+          <div><b>Exact Match</b>: GL and source line up perfectly on amount and date, and the mapping agrees with the GL account.</div>
+          <div><b>Near Match</b>: Within tolerance for amount/date and mapping agrees; usually low-risk items to clear quickly.</div>
+          <div><b>Mapping Issue</b>: Numbers are within tolerance, but the mapped GL account doesn’t match the GL on the transaction.</div>
+          <div><b>Mismatch</b>: Outside tolerance or fails other rules (amount/date gaps, mapping conflicts) and needs investigation.</div>
+          <div><b>Unmatched A / B</b>: Appears only in Dataset A (GL) or only in Dataset B (Source/Subledger); likely missing entry on the other side.</div>
         </div>
         <div class="status-grid" id="kpi-grid">
           <div class="pill">
