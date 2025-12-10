@@ -131,7 +131,7 @@ class ReconResult:
             .replace({np.nan: None, pd.NA: None})
             .to_dict(orient="records")
         )
-        ts_df["date_for_ts"] = ts_df["posting_date"].combine_first(ts_df["txn_date"])
+        ts_df["date_for_ts"] = pd.to_datetime(ts_df["posting_date"].combine_first(ts_df["txn_date"]), errors="coerce")
         ts_df["month"] = ts_df["date_for_ts"].dt.to_period("M").astype(str)
         ts_df["year"] = ts_df["date_for_ts"].dt.year
         ts_df["week"] = ts_df["date_for_ts"].dt.to_period("W-MON").astype(str)
@@ -377,38 +377,40 @@ def run_reconciliation(
     within_date = merged["days_diff"].abs() <= params.date_tol
     both_exist = a_exists & b_exists
 
-    merged["status"] = pd.Series(["MISMATCH - AMOUNT"] * len(merged), index=merged.index, dtype="object")
-    merged.loc[~a_exists & b_exists, "status"] = "ONLY PRESENT IN SUBLEDGER"
-    merged.loc[a_exists & ~b_exists, "status"] = "ONLY PRESENT IN LEDGER"
-    merged.loc[both_exist & mapping_ok_series & (merged["amount_diff"] == 0) & (merged["days_diff"] == 0), "status"] = "EXACT"
-    merged.loc[
+    status = pd.Series(["MISMATCH - AMOUNT"] * len(merged), index=merged.index, dtype="object")
+    status = status.mask(~a_exists & b_exists, "ONLY PRESENT IN SUBLEDGER")
+    status = status.mask(a_exists & ~b_exists, "ONLY PRESENT IN LEDGER")
+    status = status.mask(both_exist & mapping_ok_series & (merged["amount_diff"] == 0) & (merged["days_diff"] == 0), "EXACT")
+    status = status.mask(
         both_exist
         & mapping_ok_series
         & (merged["amount_diff"] == 0)
         & within_date
-        & (merged["days_diff"] != 0)
-        & (merged["status"] != "EXACT")
-    ] = "NEAR MATCH - DATE"
-    merged.loc[
+        & (merged["days_diff"] != 0),
+        "NEAR MATCH - DATE",
+    )
+    status = status.mask(
         both_exist
         & mapping_ok_series
         & (merged["days_diff"] == 0)
         & within_amount
-        & (merged["amount_diff"] != 0)
-        & (merged["status"] != "EXACT")
-    ] = "NEAR MATCH - AMOUNT"
-    merged.loc[
+        & (merged["amount_diff"] != 0),
+        "NEAR MATCH - AMOUNT",
+    )
+    status = status.mask(
         both_exist
         & mapping_ok_series
         & (merged["amount_diff"] == 0)
-        & (~within_date)
-        & (merged["status"].str.startswith("MISMATCH") == False)
-    ] = "MISMATCH - DATE"
-    merged.loc[
+        & (~within_date),
+        "MISMATCH - DATE",
+    )
+    status = status.mask(
         both_exist
         & mapping_ok_series
-        & (~within_amount)
-    ] = "MISMATCH - AMOUNT"
+        & (~within_amount),
+        "MISMATCH - AMOUNT",
+    )
+    merged["status"] = status
 
     # Mapping mismatches: keep status in allowed set but surface as data quality
     dq_flags: List[str] = []
