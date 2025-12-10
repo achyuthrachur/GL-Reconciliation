@@ -797,7 +797,13 @@
         table.className = "status-table";
         table.innerHTML = "<thead><tr><th>GL file</th><th>Mapping expects</th><th>Count</th></tr></thead><tbody></tbody>";
         const tbody = table.querySelector("tbody");
+        const grouped = {};
         mappingIssueSummary.forEach(r => {
+          const key = `${r.gl_account||""}__${r.mapped_gl_account||""}`;
+          grouped[key] = (grouped[key] || { gl_account: r.gl_account, mapped_gl_account: r.mapped_gl_account, count: 0 });
+          grouped[key].count += r.count || 0;
+        });
+        Object.values(grouped).forEach(r => {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${formatLabel(r.gl_account)}</td><td>${formatLabel(r.mapped_gl_account)}</td><td>${r.count || 0}</td>`;
           tbody.appendChild(tr);
