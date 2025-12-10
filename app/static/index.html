@@ -754,10 +754,10 @@
       });
     }
 
-    function renderIssues(issues = [], dq = []) {
+    function renderIssues(issues = [], dq = [], mappingIssueSummary = []) {
       issuesList.innerHTML = "";
       const combined = [...issues, ...dq];
-      if (combined.length === 0) {
+      if (combined.length === 0 && (!mappingIssueSummary || mappingIssueSummary.length === 0)) {
         issuesList.innerHTML = '<li class="muted">None detected.</li>';
         return;
       }
@@ -791,6 +791,21 @@
         }
         issuesList.appendChild(li);
       });
+      if (mappingIssueSummary && mappingIssueSummary.length > 0) {
+        const li = document.createElement("li");
+        const table = document.createElement("table");
+        table.className = "status-table";
+        table.innerHTML = "<thead><tr><th>GL file</th><th>Mapping expects</th><th>Count</th></tr></thead><tbody></tbody>";
+        const tbody = table.querySelector("tbody");
+        mappingIssueSummary.forEach(r => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${formatLabel(r.gl_account)}</td><td>${formatLabel(r.mapped_gl_account)}</td><td>${r.count || 0}</td>`;
+          tbody.appendChild(tr);
+        });
+        li.appendChild(document.createTextNode("Mapping mismatches:"));
+        li.appendChild(table);
+        issuesList.appendChild(li);
+      }
     }
 
     function applyFilters(summary) {
@@ -1392,7 +1407,7 @@
         latestAnalysisJson = data.analysis_json || data.summary || null;
         updateKPIs(summary.overview);
         renderStatusTable(summary.status_counts);
-        renderIssues(summary.issues, summary.data_quality_flags);
+        renderIssues(summary.issues, summary.data_quality_flags, summary.mapping_issue_summary || []);
         renderFilters();
         renderAnalysis(summary);
         if (data.download_url) {

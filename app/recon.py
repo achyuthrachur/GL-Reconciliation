@@ -57,6 +57,7 @@ class ReconResult:
     overview: Dict[str, float]
     issues: List[str]
     data_quality_flags: List[str]
+    mapping_issue_summary: pd.DataFrame
     unmatched_a: pd.DataFrame
     unmatched_b: pd.DataFrame
     mismatched_amount: pd.DataFrame
@@ -87,6 +88,11 @@ class ReconResult:
         status_counts_records = (
             self.status_counts.where(pd.notna(self.status_counts), None).to_dict(orient="records")
             if not self.status_counts.empty
+            else []
+        )
+        mapping_issue_summary_records = (
+            self.mapping_issue_summary.where(pd.notna(self.mapping_issue_summary), None).to_dict(orient="records")
+            if not self.mapping_issue_summary.empty
             else []
         )
         ts_df = self.model.copy()
@@ -252,6 +258,7 @@ class ReconResult:
             "mismatch_by_counterparty": mismatch_by_counterparty,
             "mismatch_by_entity": mismatch_by_entity,
             "mismatch_by_cost_center": mismatch_by_cost_center,
+            "mapping_issue_summary": mapping_issue_summary_records,
             "status_kpis": status_kpis,
             "status_year_summary": status_year_summary,
             "gl_year_summary": gl_year_summary,
@@ -417,6 +424,7 @@ def run_reconciliation(
     dq_flags: List[str] = []
     mapping_conflicts = merged[both_exist & (~mapping_ok_series)]
     map_issue_count = len(mapping_conflicts)
+    mapping_issue_summary = pd.DataFrame(columns=["gl_account", "mapped_gl_account", "count"])
     if map_issue_count > 0:
         examples = mapping_conflicts.head(5)[["doc_id", "ref_id", "gl_account", "mapped_gl_account"]].to_dict(orient="records")
         sample_lines = "; ".join(
@@ -427,6 +435,11 @@ def run_reconciliation(
         )
         dq_flags.append(f"Mapping mismatches: GL account differs from mapped account on matched rows. Examples: {sample_lines}")
         merged.loc[mapping_conflicts.index, "status"] = "MAPPING ISSUE"
+        mapping_issue_summary = (
+            mapping_conflicts.groupby(["gl_account", "mapped_gl_account"])
+            .size()
+            .reset_index(name="count")
+        )
 
     invalid_status = merged[~merged["status"].isin(STATUS_ORDER)]
     if not invalid_status.empty:
@@ -555,5 +568,6 @@ def run_reconciliation(
         exceptions_by_src=exceptions_by_src,
         missing_map=missing_map,
         missing_map_by_source=missing_map_by_source,
+        mapping_issue_summary=mapping_issue_summary,
         params=params,
     )
