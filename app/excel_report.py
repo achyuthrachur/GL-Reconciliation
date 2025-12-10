@@ -46,6 +46,7 @@ def build_excel_report(result: ReconResult, output_path: Path) -> Path:
         "EXACT": "#d9ead3",
         "NEAR MATCH - DATE": "#fff2cc",
         "NEAR MATCH - AMOUNT": "#fff2cc",
+        "MAPPING ISSUE": "#f9cb9c",
         "MISMATCH - DATE": "#f9cb9c",
         "MISMATCH - AMOUNT": "#f4cccc",
         "ONLY PRESENT IN LEDGER": "#f4cccc",

@@ -42,6 +42,7 @@ STATUS_ORDER = [
     "EXACT",
     "NEAR MATCH - DATE",
     "NEAR MATCH - AMOUNT",
+    "MAPPING ISSUE",
     "MISMATCH - DATE",
     "MISMATCH - AMOUNT",
     "ONLY PRESENT IN LEDGER",
@@ -412,14 +413,20 @@ def run_reconciliation(
     )
     merged["status"] = status
 
-    # Mapping mismatches: keep status in allowed set but surface as data quality
+    # Mapping mismatches: mark as separate status and surface as data quality
     dq_flags: List[str] = []
     mapping_conflicts = merged[both_exist & (~mapping_ok_series)]
     map_issue_count = len(mapping_conflicts)
     if map_issue_count > 0:
         examples = mapping_conflicts.head(5)[["doc_id", "ref_id", "gl_account", "mapped_gl_account"]].to_dict(orient="records")
-        dq_flags.append(f"Mapping mismatches detected between GL and mapped account (examples: {examples})")
-        merged.loc[mapping_conflicts.index, "status"] = "MISMATCH - AMOUNT"
+        sample_lines = "; ".join(
+            [
+                f"doc/ref {e['doc_id'] or e['ref_id']}: GL file has {e['gl_account']}, mapping expects {e['mapped_gl_account']}"
+                for e in examples
+            ]
+        )
+        dq_flags.append(f"Mapping mismatches: GL account differs from mapped account on matched rows. Examples: {sample_lines}")
+        merged.loc[mapping_conflicts.index, "status"] = "MAPPING ISSUE"
 
     invalid_status = merged[~merged["status"].isin(STATUS_ORDER)]
     if not invalid_status.empty:
@@ -435,7 +442,7 @@ def run_reconciliation(
         "total_rows": int(len(merged)),
         "exact_matches": _count("EXACT"),
         "near_matches": _count("NEAR MATCH - DATE") + _count("NEAR MATCH - AMOUNT"),
-        "mapping_issues": map_issue_count,
+        "mapping_issues": _count("MAPPING ISSUE"),
         "mismatches": _count("MISMATCH - DATE") + _count("MISMATCH - AMOUNT"),
         "unmatched_a": _count("ONLY PRESENT IN LEDGER"),
         "unmatched_b": _count("ONLY PRESENT IN SUBLEDGER"),

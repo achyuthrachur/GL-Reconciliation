@@ -377,11 +377,11 @@
     }
     .mode-toggle button.active {
       background: rgba(56,189,248,0.16);
-      color: #7dd3fc;
+      color: var(--text);
     }
     .demo-status {
       font-size: 13px;
-      color: #7dd3fc;
+      color: var(--text);
       margin-left: 10px;
     }
     @media (max-width: 640px) {
@@ -484,6 +484,7 @@
           <div><b>Exact</b>: GL and source align on amount and date, and the mapping agrees with the GL account.</div>
           <div><b>Near Match - Date</b>: Amount matches; date is within tolerance (e.g., timing difference).</div>
           <div><b>Near Match - Amount</b>: Date matches; amount difference is within the set tolerance.</div>
+          <div><b>Mapping Issue</b>: GL account in the file differs from the mapped account for that source; excluded from reconciliation totals.</div>
           <div><b>Mismatch - Date</b>: Amount matches, but the date gap exceeds tolerance.</div>
           <div><b>Mismatch - Amount</b>: Amount difference exceeds tolerance (mapping issues are counted here and noted in data quality).</div>
           <div><b>Only in Ledger / Subledger</b>: Appears only in Dataset A (GL) or only in Dataset B (Source/Subledger); likely missing entry on the other side.</div>
@@ -543,8 +544,8 @@
         </div>
         <div class="mode-toggle">
           <button type="button" class="active" data-tab="snapshot-tab">Snapshot</button>
-          <button type="button" data-tab="trends-tab">Trends</button>
-          <button type="button" data-tab="yearly-tab">Yearly</button>
+          <button type="button" data-tab="trends-tab">Yearly</button>
+          <button type="button" data-tab="yearly-tab">Trends</button>
           <button type="button" data-tab="variances-tab">Variances</button>
         </div>
       </div>
@@ -980,7 +981,7 @@
       glChart = new Chart(ctxGl, {
         type: "bar",
         data: {
-          labels: glData.map(d => d.gl_bucket || d.gl_account || d.source_bucket || ""),
+          labels: glData.map(d => formatLabel(d.gl_bucket || d.gl_account || d.source_bucket || "")),
           datasets: [{ label: "Exceptions by GL", data: glData.map(d => d.count), backgroundColor: "#f97316", borderRadius: 6 }]
         },
         options: {
@@ -1111,7 +1112,7 @@
         categoryDonut = new Chart(ctxDonut, {
           type: "doughnut",
           data: {
-            labels: catData.map(r => r.gl_bucket || "Unknown"),
+            labels: catData.map(r => formatLabel(r.gl_bucket || "Unknown")),
             datasets: [{ data: catData.map(r => r.count || 0), backgroundColor: catData.map((_,i)=>`hsla(${i*45},70%,60%,0.8)`) }]
           },
           options: { plugins: { legend: { position: "bottom" } } }
@@ -1196,7 +1197,7 @@
         const topGlVar = (summary.variance_by_gl || []).slice(0,8);
         varianceGlChart = new Chart(ctxVarGl, {
           type: "bar",
-          data: { labels: topGlVar.map(r => r.gl_bucket || "Unknown"), datasets: [{ label: "Total abs variance", data: topGlVar.map(r => r.total_abs_diff || 0), backgroundColor: topGlVar.map((_,i)=>`hsla(${i*40},70%,55%,0.8)`) }] },
+          data: { labels: topGlVar.map(r => formatLabel(r.gl_bucket || "Unknown")), datasets: [{ label: "Total abs variance", data: topGlVar.map(r => r.total_abs_diff || 0), backgroundColor: topGlVar.map((_,i)=>`hsla(${i*40},70%,55%,0.8)`) }] },
           options: { maintainAspectRatio: false, indexAxis: "y", plugins: { legend: { display: true, position: "bottom" }, tooltip: { callbacks: { label: ctx => ` $${(ctx.parsed.x||0).toLocaleString()}` } } }, scales: { x: { beginAtZero: true } } }
         });
       }
@@ -1247,7 +1248,7 @@
       });
       renderTable("missing-map-table", missingMap, 2, "No missing mappings");
 
-      const mismatchCat = (filtered.mismatch_by_gl || []).map(r => `<td>${r.gl_bucket || "-"}</td><td>${r.count || 0}</td>`);
+      const mismatchCat = (filtered.mismatch_by_gl || []).map(r => `<td>${formatLabel(r.gl_bucket || "-")}</td><td>${r.count || 0}</td>`);
       renderTable("mismatch-cat-table", mismatchCat, 2, "No mismatch categories");
       const mismatchSrc = (filtered.mismatch_by_src || []).map(r => `<td>${r.source_bucket || "-"}</td><td>${r.count || 0}</td>`);
       renderTable("mismatch-src-table", mismatchSrc, 2, "No mismatch by source");
@@ -1379,8 +1380,11 @@
   </script>
   <div id="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:998;"></div>
   <div id="drilldown-modal" style="display:none; position:fixed; top:10%; left:50%; transform:translateX(-50%); width:70%; max-width:900px; background:var(--panel); border:1px solid var(--stroke); border-radius:12px; padding:16px; box-shadow:var(--shadow); z-index:999;">
-    <div class="flex-between" style="margin-bottom:10px;">
-      <div class="section-title"><span></span><span id="drill-title">Drilldown</span></div>
+    <div class="flex-between" style="margin-bottom:10px; align-items:center;">
+      <div class="section-title" style="gap:6px;">
+        <span></span>
+        <div id="drill-title" style="font-size:16px; font-weight:700;">Drilldown</div>
+      </div>
       <button onclick="closeDrilldown()" style="width:auto; padding:6px 10px;">Close</button>
     </div>
     <div class="table-card" style="max-height:420px; overflow:auto;">
@@ -1392,3 +1396,11 @@
   </div>
 </body>
 </html>
+    function formatLabel(val) {
+      if (val === null || val === undefined) return "";
+      const num = Number(val);
+      if (!Number.isNaN(num) && Number.isFinite(num)) {
+        return Number.isInteger(num) ? `${num}` : `${num}`;
+      }
+      return String(val);
+    }
