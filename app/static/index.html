@@ -914,6 +914,15 @@
       if (chart) chart.destroy();
     }
 
+    function formatLabel(val) {
+      if (val === null || val === undefined) return "";
+      const num = Number(val);
+      if (!Number.isNaN(num) && Number.isFinite(num)) {
+        return Number.isInteger(num) ? `${num}` : `${num}`;
+      }
+      return String(val);
+    }
+
     function renderCharts(summary) {
       if (typeof Chart === "undefined") return;
       const ctxStatus = document.getElementById("status-chart")?.getContext("2d");
