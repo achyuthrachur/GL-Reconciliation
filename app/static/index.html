@@ -610,7 +610,7 @@
           <button type="button" id="reset-time" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
         </div>
         <div class="canvas-wrap">
-          <div class="desc">Stacked status by month — see seasonality and mix shifts at a glance.</div>
+      <div class="desc">Stacked status by month — see seasonality and mix shifts at a glance.</div>
           <canvas id="heatmap-chart" height="160"></canvas>
         </div>
         <div class="canvas-wrap">
@@ -763,7 +763,28 @@
       }
       combined.forEach(item => {
         const li = document.createElement("li");
-        li.textContent = item;
+        if (item.startsWith("Mapping mismatches:")) {
+          const rowsText = item.replace("Mapping mismatches:", "").trim();
+          const parts = rowsText.split(";").map(p => p.trim()).filter(Boolean);
+          const table = document.createElement("table");
+          table.className = "status-table";
+          table.innerHTML = "<thead><tr><th>Doc/Ref</th><th>GL file</th><th>Mapping expects</th></tr></thead><tbody></tbody>";
+          const tbody = table.querySelector("tbody");
+          parts.forEach(p => {
+            // p format: doc/ref TXN000003: GL file has 6400.0, mapping expects 5000.0
+            const match = p.match(/doc\/ref\\s+(.*?):\\s+GL file has\\s+([^,]+),\\s+mapping expects\\s+(.+)/i);
+            const doc = match ? match[1] : p;
+            const gl = match ? match[2] : "";
+            const map = match ? match[3] : "";
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td>${doc}</td><td>${formatLabel(gl)}</td><td>${formatLabel(map)}</td>`;
+            tbody.appendChild(tr);
+          });
+          li.appendChild(document.createTextNode("Mapping mismatches:"));
+          li.appendChild(table);
+        } else {
+          li.textContent = item;
+        }
         issuesList.appendChild(li);
       });
     }
