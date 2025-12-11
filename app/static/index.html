@@ -160,8 +160,9 @@
       padding: 10px;
       border-bottom: 1px solid rgba(255,255,255,0.08);
       text-align: left;
+      color: var(--text);
     }
-    .status-table th { color: var(--muted); font-weight: 500; }
+    .status-table th { font-weight: 600; }
     .chip {
       padding: 4px 8px;
       border-radius: 999px;
@@ -763,7 +764,10 @@
       }
       combined.forEach(item => {
         const li = document.createElement("li");
-        if (item.startsWith("Mapping mismatches:") && (!mappingIssueSummary || mappingIssueSummary.length === 0)) {
+        if (item.startsWith("Mapping mismatches:")) {
+          if (mappingIssueSummary && mappingIssueSummary.length > 0) {
+            return; // skip narrative when full summary is available
+          }
           const rowsText = item.replace("Mapping mismatches:", "").trim();
           const parts = rowsText.split(";").map(p => p.trim()).filter(Boolean);
           const counts = {};
