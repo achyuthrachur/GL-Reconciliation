@@ -763,7 +763,7 @@
       }
       combined.forEach(item => {
         const li = document.createElement("li");
-        if (item.startsWith("Mapping mismatches:")) {
+        if (item.startsWith("Mapping mismatches:") && (!mappingIssueSummary || mappingIssueSummary.length === 0)) {
           const rowsText = item.replace("Mapping mismatches:", "").trim();
           const parts = rowsText.split(";").map(p => p.trim()).filter(Boolean);
           const counts = {};

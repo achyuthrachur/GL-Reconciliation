@@ -518,6 +518,10 @@ def run_reconciliation(
         .reset_index(name="count")
         .sort_values("count", ascending=False)
     )
+    if not missing_map_by_source.empty:
+        missing_sources = missing_map_by_source["source_account"].nunique()
+        missing_rows = len(missing_map)
+        dq_flags.append(f"Missing mappings: {missing_rows} rows across {missing_sources} source accounts (see Missing_Map tab).")
 
     # Ensure consistent column order for model
     model_columns = [
