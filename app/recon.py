@@ -68,9 +68,27 @@ class ReconResult:
     missing_map_by_source: pd.DataFrame
     params: ReconParams
 
-    def jsonable_summary(self, sample_rows: int = 25) -> Dict:
+    def jsonable_summary(
+        self,
+        sample_rows: int = 0,
+        mismatched_sample: int = 5,
+        include_weekly: bool = True,
+        weekly_limit: int = 52,
+        monthly_limit: Optional[int] = None,
+    ) -> Dict:
+        """
+        Return a JSON-safe summary with optional trimming.
+
+        Parameters:
+            sample_rows: kept for backward compatibility; defaults to 0 to avoid bloating payloads.
+            mismatched_sample: number of mismatched rows to include.
+            include_weekly: whether to include weekly time series (can be heavy).
+            weekly_limit: max distinct weeks to include (most recent).
+            monthly_limit: optional cap on distinct months to include (most recent).
+        """
+
         def frame_to_records(df: pd.DataFrame, n: int) -> List[Dict]:
-            if df.empty:
+            if df.empty or n <= 0:
                 return []
             cleaned = df.head(n).replace({np.nan: None, pd.NA: None})
             return cleaned.to_dict(orient="records")
@@ -212,24 +230,44 @@ class ReconResult:
             .replace({np.nan: None, pd.NA: None})
             .to_dict(orient="records")
         )
-        status_ts_month = (
+        status_ts_month_df = (
             ts_df.dropna(subset=["month"])
             .groupby(["month", "status"])
             .size()
             .reset_index(name="count")
             .sort_values("month")
-            .replace({np.nan: None, pd.NA: None})
-            .to_dict(orient="records")
         )
-        status_ts_week = (
-            ts_df.dropna(subset=["week"])
-            .groupby(["week", "status"])
-            .size()
-            .reset_index(name="count")
-            .sort_values("week")
-            .replace({np.nan: None, pd.NA: None})
-            .to_dict(orient="records")
+        if monthly_limit:
+            months = status_ts_month_df["month"].unique()
+            if len(months) > monthly_limit:
+                keep_months = months[-monthly_limit:]
+                status_ts_month_df = status_ts_month_df[status_ts_month_df["month"].isin(keep_months)]
+        status_ts_month = (
+            status_ts_month_df.replace({np.nan: None, pd.NA: None}).to_dict(orient="records")
+            if not status_ts_month_df.empty
+            else []
         )
+
+        status_ts_week: List[Dict] = []
+        if include_weekly:
+            status_ts_week_df = (
+                ts_df.dropna(subset=["week"])
+                .groupby(["week", "status"])
+                .size()
+                .reset_index(name="count")
+                .sort_values("week")
+            )
+            if weekly_limit:
+                weeks = status_ts_week_df["week"].unique()
+                if len(weeks) > weekly_limit:
+                    keep_weeks = weeks[-weekly_limit:]
+                    status_ts_week_df = status_ts_week_df[status_ts_week_df["week"].isin(keep_weeks)]
+            status_ts_week = (
+                status_ts_week_df.replace({np.nan: None, pd.NA: None}).to_dict(orient="records")
+                if not status_ts_week_df.empty
+                else []
+            )
+
         status_ts_year = (
             ts_df.dropna(subset=["year"])
             .groupby(["year", "status"])
@@ -244,15 +282,13 @@ class ReconResult:
             "status_counts": status_counts_records,
             "issues": self.issues,
             "data_quality_flags": self.data_quality_flags,
-            "sample": frame_to_records(self.model, sample_rows),
             "unmatched_a": len(self.unmatched_a),
             "unmatched_b": len(self.unmatched_b),
             "mismatched_amount": len(self.mismatched_amount),
-            "mismatched_amount_sample": frame_to_records(self.mismatched_amount, 15),
+            "mismatched_amount_sample": frame_to_records(self.mismatched_amount, mismatched_sample),
             "exceptions_by_gl": frame_to_records(self.exceptions_by_gl, 15),
             "exceptions_by_src": frame_to_records(self.exceptions_by_src, 15),
             "missing_map_by_source": frame_to_records(self.missing_map_by_source, 15),
-            "drill_rows": frame_to_records(self.model, 500),
             "mismatch_by_gl": mismatch_by_gl,
             "mismatch_by_src": mismatch_by_src,
             "mismatch_by_counterparty": mismatch_by_counterparty,
