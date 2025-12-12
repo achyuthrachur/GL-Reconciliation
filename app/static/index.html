@@ -619,7 +619,10 @@
           <button type="button" id="reset-time" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
         </div>
         <div class="canvas-wrap">
-      <div class="desc">Stacked status by month — see seasonality and mix shifts at a glance.</div>
+      <div class="desc" style="display:flex; align-items:center; gap:10px;">
+        <span>Stacked status by month — see seasonality and mix shifts at a glance.</span>
+        <button type="button" id="reset-heatmap" class="link-btn" style="padding:4px 8px;">Reset view</button>
+      </div>
           <canvas id="heatmap-chart" height="160"></canvas>
         </div>
         <div class="canvas-wrap">
@@ -710,6 +713,7 @@
       gl: document.getElementById("reset-gl"),
       src: document.getElementById("reset-src"),
       time: document.getElementById("reset-time"),
+      heatmap: document.getElementById("reset-heatmap"),
     };
 
     const KPI_MAP = {
@@ -1532,12 +1536,13 @@
         if (tsEnd) tsEnd.value = "";
       }
       if (latestAnalysisJson) renderAnalysis(latestAnalysisJson);
-      [statusChart, glChart, srcChart, timeChart].forEach(ch => { if (ch && ch.resetZoom) ch.resetZoom(); });
+      [statusChart, glChart, srcChart, timeChart, heatmapChart].forEach(ch => { if (ch && ch.resetZoom) ch.resetZoom(); });
     }
     if (resetButtons.status) resetButtons.status.addEventListener("click", resetFiltersAndRerender);
     if (resetButtons.gl) resetButtons.gl.addEventListener("click", resetFiltersAndRerender);
     if (resetButtons.src) resetButtons.src.addEventListener("click", resetFiltersAndRerender);
     if (resetButtons.time) resetButtons.time.addEventListener("click", resetFiltersAndRerender);
+    if (resetButtons.heatmap) resetButtons.heatmap.addEventListener("click", resetFiltersAndRerender);
 
     downloadJsonBtn.addEventListener("click", (e) => {
       e.preventDefault();
