@@ -169,13 +169,13 @@ Mismatched pairs (top 10 by amount diff):
 Missing mappings by source (top 10):
 {missing_table}
 
-Write in Markdown with clear headings and short bullet lists. Required sections:
-- Overview: 2–3 sentences with overall health and tolerances.
-- Mix & trends: bullets on status mix, notable shifts or concentrations (reference counts and magnitude, not whole tables).
-- Key drivers: bullets for top GL accounts and Source accounts driving exceptions, and the dominant mismatch reasons (amount vs date vs mapping).
+Write in Markdown with clear headings, mixing short paragraphs plus bullet lists in every section (avoid inline sub-headings inside bullets). Required sections:
+- Overview: a short paragraph (2–3 sentences) with overall health and tolerances.
+- Mix & trends: a short paragraph plus bullets on status mix, notable shifts or concentrations (reference counts and magnitude, not whole tables).
+- Key drivers: a short paragraph plus bullets for top GL accounts and Source accounts driving exceptions, and the dominant mismatch reasons (amount vs date vs mapping).
 - Exceptions: bullets summarizing biggest mismatches, including at least one doc/ref example with amount and days difference if available.
-- Mapping & missing: bullets on mapping issues and missing mappings by source (counts and any clear pattern).
-- Next steps: 4–6 concise action bullets tailored to the data quality issues observed.
+- Mapping & missing: a short paragraph plus bullets on mapping issues and missing mappings by source (counts and any clear pattern).
+- Next steps: a short lead-in sentence plus 6–8 concise, actionable bullets (what/owner/timeframe where reasonable), tailored to the data quality issues observed.
 
 Keep it factual; do not paste the raw tables; summarize patterns and size. Avoid line-leading hashes inside bullets; use proper headings and bullets.
 """

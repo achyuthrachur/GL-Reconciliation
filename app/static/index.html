@@ -755,6 +755,8 @@
 
     function inlineFmt(text) {
       let t = escapeHtml(text);
+      // strip markdown links to plain text
+      t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1");
       t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
       t = t.replace(/\*(.+?)\*/g, "<em>$1</em>");
       t = t.replace(/`(.+?)`/g, "<code>$1</code>");
@@ -765,14 +767,20 @@
       const lines = (md || "").split(/\r?\n/);
       const out = [];
       let inList = false;
-      lines.forEach(line => {
+      lines.forEach(rawLine => {
+        const line = rawLine.trimEnd();
+        if (line.trim() === "") {
+          return;
+        }
         if (/^\s*[-*]\s+/.test(line)) {
           if (!inList) {
             out.push("<ul>");
             inList = true;
           }
           const item = line.replace(/^\s*[-*]\s+/, "");
-          out.push(`<li>${inlineFmt(item)}</li>`);
+          if (item.trim() !== "") {
+            out.push(`<li>${inlineFmt(item)}</li>`);
+          }
         } else {
           if (inList) {
             out.push("</ul>");
