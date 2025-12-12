@@ -463,6 +463,10 @@
             <div class="inline-progress-bar"><div id="run-progress-bar"></div></div>
             <span id="run-progress-text">Working...</span>
           </div>
+          <div id="report-progress" class="inline-progress" style="display:none;">
+            <div class="inline-progress-bar"><div id="report-progress-bar"></div></div>
+            <span id="report-progress-text">Preparing AI report...</span>
+          </div>
           <div class="steps">
             <div class="step">1. Upload GL / Subledger / Mapping</div>
             <div class="step">2. Set tolerances or use defaults</div>
@@ -698,6 +702,9 @@
     const runProgressWrap = document.getElementById("run-progress");
     const runProgressBar = document.getElementById("run-progress-bar");
     const runProgressText = document.getElementById("run-progress-text");
+    const reportProgressWrap = document.getElementById("report-progress");
+    const reportProgressBar = document.getElementById("report-progress-bar");
+    const reportProgressText = document.getElementById("report-progress-text");
     const resetButtons = {
       status: document.getElementById("reset-status"),
       gl: document.getElementById("reset-gl"),
@@ -1049,13 +1056,23 @@
       if (runProgressWrap) {
         runProgressWrap.style.display = "flex";
         if (runProgressBar) runProgressBar.style.width = "0%";
-        if (runProgressText) runProgressText.textContent = pendingReport ? "Generating AI report..." : "Running...";
+        if (runProgressText) runProgressText.textContent = "Running reconciliation...";
+      }
+      if (reportProgressWrap) {
+        reportProgressWrap.style.display = pendingReport ? "flex" : "none";
+        if (reportProgressBar) reportProgressBar.style.width = "0%";
+        if (reportProgressText) reportProgressText.textContent = "Generating AI report...";
       }
       let w = 0;
+      let wr = 0;
       progressTimer = setInterval(() => {
         w = Math.min(95, w + Math.random() * 10);
         bar.style.width = `${w}%`;
         if (runProgressBar) runProgressBar.style.width = `${w}%`;
+        if (pendingReport && reportProgressBar) {
+          wr = Math.min(95, wr + Math.random() * 8);
+          reportProgressBar.style.width = `${wr}%`;
+        }
       }, 200);
     }
 
@@ -1065,9 +1082,14 @@
       bar.style.width = "100%";
       if (runProgressBar) runProgressBar.style.width = "100%";
       if (runProgressText) runProgressText.textContent = "Complete";
+      if (pendingReport && reportProgressBar) {
+        reportProgressBar.style.width = "100%";
+        if (reportProgressText) reportProgressText.textContent = "Complete";
+      }
       setTimeout(() => {
         bar.style.width = "0%";
         if (runProgressWrap) runProgressWrap.style.display = "none";
+        if (reportProgressWrap) reportProgressWrap.style.display = "none";
       }, 500);
     }
 
