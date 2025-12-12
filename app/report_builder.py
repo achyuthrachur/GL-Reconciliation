@@ -169,13 +169,14 @@ Mismatched pairs (top 10 by amount diff):
 Missing mappings by source (top 10):
 {missing_table}
 
-Write in Markdown with clear headings, mixing short paragraphs plus bullet lists in every section (avoid inline sub-headings inside bullets). Required sections:
-- Overview: a short paragraph (2–3 sentences) with overall health and tolerances.
-- Mix & trends: a short paragraph plus bullets on status mix, notable shifts or concentrations (reference counts and magnitude, not whole tables).
-- Key drivers: a short paragraph plus bullets for top GL accounts and Source accounts driving exceptions, and the dominant mismatch reasons (amount vs date vs mapping).
-- Exceptions: bullets summarizing biggest mismatches, including at least one doc/ref example with amount and days difference if available.
-- Mapping & missing: a short paragraph plus bullets on mapping issues and missing mappings by source (counts and any clear pattern).
-- Next steps: a short lead-in sentence plus 6–8 concise, actionable bullets (what/owner/timeframe where reasonable), tailored to the data quality issues observed.
+Write in Markdown with clear headings and prose first, then bullets (avoid inline sub-headings inside bullets). Required structure:
+- Overview: one short paragraph (2–3 sentences) with overall health and tolerances.
+- Mix & trends: one paragraph summarizing mix and movement; then 3–5 bullets on status mix and concentrations (reference counts/magnitudes, not whole tables).
+- Key drivers: one paragraph; then bullets for top GL accounts and Source accounts driving exceptions, and the dominant mismatch reasons (amount vs date vs mapping).
+- Exceptions: one lead-in sentence; then bullets for biggest mismatches, including at least one doc/ref example with amount and days difference if available.
+- Mapping & missing: one paragraph; then bullets on mapping issues and missing mappings by source (counts and patterns).
+- Next steps: one lead-in sentence; then 6–8 concise, actionable bullets (what/owner/timeframe where reasonable), tailored to the data quality issues observed.
+Do not output bullet-only sections; each section must start with prose before any bullets.
 
 Keep it factual; do not paste the raw tables; summarize patterns and size. Avoid line-leading hashes inside bullets; use proper headings and bullets.
 """

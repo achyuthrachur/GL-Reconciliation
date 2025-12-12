@@ -96,7 +96,6 @@
       box-shadow: var(--shadow);
       backdrop-filter: blur(10px);
     }
-    .card strong { color: #fff; }
     label {
       font-size: 13px;
       color: var(--muted);
@@ -137,6 +136,15 @@
     }
     button:hover:not(:disabled) { transform: translateY(-1px); }
     button:active:not(:disabled) { transform: translateY(0); filter: brightness(0.98); }
+    .link-btn {
+      background: transparent;
+      color: var(--accent);
+      padding: 4px 6px;
+      border: 1px solid var(--stroke);
+      border-radius: 8px;
+      width: auto;
+      box-shadow: none;
+    }
     .status-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -619,11 +627,11 @@
           <button type="button" id="reset-time" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
         </div>
         <div class="canvas-wrap">
-      <div class="desc" style="display:flex; align-items:center; gap:10px;">
-        <span>Stacked status by month — see seasonality and mix shifts at a glance.</span>
-        <button type="button" id="reset-heatmap" class="link-btn" style="padding:4px 8px;">Reset view</button>
-      </div>
+      <div class="desc">Stacked status by month — see seasonality and mix shifts at a glance.</div>
           <canvas id="heatmap-chart" height="160"></canvas>
+          <div style="margin-top:6px;">
+            <button type="button" id="reset-heatmap" class="link-btn">Reset view</button>
+          </div>
         </div>
         <div class="canvas-wrap">
           <div class="desc">Mismatch mix by GL (top categories) to spot concentration.</div>
@@ -774,6 +782,10 @@
       lines.forEach(rawLine => {
         const line = rawLine.trimEnd();
         if (line.trim() === "") {
+          if (inList) {
+            out.push("</ul>");
+            inList = false;
+          }
           return;
         }
         if (/^\s*[-*]\s+/.test(line)) {
@@ -782,8 +794,9 @@
             inList = true;
           }
           const item = line.replace(/^\s*[-*]\s+/, "");
-          if (item.trim() !== "") {
-            out.push(`<li>${inlineFmt(item)}</li>`);
+          const cleaned = item.trim();
+          if (cleaned !== "" && cleaned !== ":" && cleaned !== "•") {
+            out.push(`<li>${inlineFmt(cleaned)}</li>`);
           }
         } else {
           if (inList) {
