@@ -147,6 +147,16 @@
       display: inline-flex;
       align-items: center;
     }
+    .reset-btn {
+      background: linear-gradient(120deg, #1d4ed8, #1d4ed8);
+      color: #0b1021;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 10px;
+      width: auto;
+      box-shadow: 0 8px 18px rgba(29,78,216,0.25);
+      font-weight: 700;
+    }
     .status-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -575,18 +585,18 @@
           <div class="canvas-wrap">
           <div class="desc">Status mix across all reconciled rows. Click a status to filter all charts and see a yearly summary; reset returns to the full population. Allowed categories only: Exact, Near Match (Date/Amount), Mismatch (Date/Amount), Only in Ledger, Only in Subledger.</div>
           <canvas id="status-chart" height="140"></canvas>
-            <button type="button" id="reset-status" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
+            <button type="button" id="reset-status" class="reset-btn" style="margin-top:6px;">Reset view</button>
           </div>
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:14px;">
             <div class="canvas-wrap">
               <div class="desc">Exceptions by GL account. Click a bar to drill into that GL’s rows and filter the dashboard.</div>
               <canvas id="gl-chart" height="130"></canvas>
-              <button type="button" id="reset-gl" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
+              <button type="button" id="reset-gl" class="reset-btn" style="margin-top:6px;">Reset view</button>
             </div>
             <div class="canvas-wrap">
               <div class="desc">Exceptions by Source/Subledger account. Click to drill and filter.</div>
               <canvas id="src-chart" height="130"></canvas>
-              <button type="button" id="reset-src" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
+              <button type="button" id="reset-src" class="reset-btn" style="margin-top:6px;">Reset view</button>
             </div>
           </div>
         </div>
@@ -626,14 +636,11 @@
             </div>
           </div>
           <canvas id="time-chart" height="140"></canvas>
-          <button type="button" id="reset-time" style="margin-top:6px; width:auto; padding:6px 10px;">Reset view</button>
+          <button type="button" id="reset-time" class="reset-btn" style="margin-top:6px;">Reset view</button>
         </div>
         <div class="canvas-wrap">
           <div class="desc" style="margin-bottom:4px;">Stacked status by month - see seasonality and mix shifts at a glance.</div>
           <canvas id="heatmap-chart" height="160"></canvas>
-          <div style="margin-top:6px;">
-            <button type="button" id="reset-heatmap" class="link-btn">Reset view</button>
-          </div>
         </div>
         <div class="canvas-wrap">
           <div class="desc">Mismatch mix by GL (top categories) to spot concentration.</div>
@@ -723,7 +730,6 @@
       gl: document.getElementById("reset-gl"),
       src: document.getElementById("reset-src"),
       time: document.getElementById("reset-time"),
-      heatmap: document.getElementById("reset-heatmap"),
     };
 
     const KPI_MAP = {
@@ -1557,7 +1563,6 @@
     if (resetButtons.gl) resetButtons.gl.addEventListener("click", resetFiltersAndRerender);
     if (resetButtons.src) resetButtons.src.addEventListener("click", resetFiltersAndRerender);
     if (resetButtons.time) resetButtons.time.addEventListener("click", resetFiltersAndRerender);
-    if (resetButtons.heatmap) resetButtons.heatmap.addEventListener("click", resetFiltersAndRerender);
 
     downloadJsonBtn.addEventListener("click", (e) => {
       e.preventDefault();
