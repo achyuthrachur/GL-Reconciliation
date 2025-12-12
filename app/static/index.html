@@ -454,8 +454,10 @@
             </div>
           </div>
           <!-- AI narrative toggle hidden -->
-        <div style="margin-top:18px;">
+        <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
+          <input type="hidden" id="generate-report-flag" name="generate_report" value="false" />
           <button type="submit" id="run-btn">Run reconciliation</button>
+          <button type="button" id="ai-report-btn" class="secondary">Run with AI report</button>
         </div>
           <div id="run-progress" class="inline-progress">
             <div class="inline-progress-bar"><div id="run-progress-bar"></div></div>
@@ -465,6 +467,7 @@
             <div class="step">1. Upload GL / Subledger / Mapping</div>
             <div class="step">2. Set tolerances or use defaults</div>
             <div class="step">3. Review KPIs and download Excel</div>
+            <div class="step">4. (Optional) Generate AI summary</div>
           </div>
         </form>
       </section>
@@ -516,6 +519,11 @@
             <div class="label">Unmatched B</div>
             <div class="value" id="kpi-unmatched-b">-</div>
           </div>
+        </div>
+        <div id="ai-report-card" class="table-card" style="display:none; margin-top:12px;">
+          <div class="section-title"><span></span>AI report</div>
+          <div id="ai-report-error" class="muted" style="color:#ef4444; display:none; margin-bottom:6px;"></div>
+          <pre id="ai-report-box" style="white-space:pre-wrap; background:var(--panel); color:var(--text); padding:12px; border:1px solid var(--stroke); border-radius:10px; max-height:220px; overflow:auto;"></pre>
         </div>
         <div class="divider"></div>
         <div>
@@ -678,9 +686,14 @@
 
     const form = document.getElementById("recon-form");
     const runBtn = document.getElementById("run-btn");
+    const aiReportBtn = document.getElementById("ai-report-btn");
+    const generateReportInput = document.getElementById("generate-report-flag");
     const statusChip = document.getElementById("status-chip");
     const downloadLink = document.getElementById("download-link");
     const downloadJsonBtn = document.getElementById("download-json");
+    const aiReportCard = document.getElementById("ai-report-card");
+    const aiReportBox = document.getElementById("ai-report-box");
+    const aiReportError = document.getElementById("ai-report-error");
     const issuesList = document.getElementById("issues-list");
     const modeUploadBtn = document.getElementById("mode-upload");
     const modeDemoBtn = document.getElementById("mode-demo");
@@ -706,7 +719,7 @@
       "unmatched_b": "kpi-unmatched-b"
     };
 
-    const STATUS_COLORS = {
+    const STATUS_BADGE_COLORS = {
       "EXACT": "green",
       "NEAR MATCH - DATE": "yellow",
       "NEAR MATCH - AMOUNT": "yellow",
@@ -734,6 +747,27 @@
       statusChip.className = `chip ${color}`;
     }
 
+    function clearAiReport() {
+      if (aiReportCard) aiReportCard.style.display = "none";
+      if (aiReportBox) aiReportBox.textContent = "";
+      if (aiReportError) {
+        aiReportError.textContent = "";
+        aiReportError.style.display = "none";
+      }
+    }
+
+    function showAiReport(markdown, errorText) {
+      if (!aiReportCard) return;
+      aiReportCard.style.display = "block";
+      if (errorText) {
+        aiReportError.textContent = errorText;
+        aiReportError.style.display = "block";
+      } else {
+        aiReportError.style.display = "none";
+      }
+      aiReportBox.textContent = markdown || "No report returned.";
+    }
+
     function updateKPIs(overview) {
       Object.entries(KPI_MAP).forEach(([key, id]) => {
         document.getElementById(id).textContent = overview?.[key] ?? "-";
@@ -749,7 +783,7 @@
       }
       statusCounts.forEach(row => {
         const tr = document.createElement("tr");
-        const chipClass = STATUS_COLORS[row.status] || "yellow";
+        const chipClass = STATUS_BADGE_COLORS[row.status] || "yellow";
         tr.innerHTML = `<td><span class="chip ${chipClass}">${prettyStatus(row.status)}</span></td><td>${row.count}</td>`;
         tbody.appendChild(tr);
       });
@@ -931,6 +965,7 @@
     let theme = "light";
     const filters = { status: null, gl: null, src: null };
     let progressTimer = null;
+    let pendingReport = false;
 
     // Consistent status ordering and colors across charts
     const STATUS_ORDER = [
@@ -969,7 +1004,7 @@
       if (runProgressWrap) {
         runProgressWrap.style.display = "flex";
         if (runProgressBar) runProgressBar.style.width = "0%";
-        if (runProgressText) runProgressText.textContent = "Running...";
+        if (runProgressText) runProgressText.textContent = pendingReport ? "Generating AI report..." : "Running...";
       }
       let w = 0;
       progressTimer = setInterval(() => {
@@ -1443,13 +1478,30 @@
       URL.revokeObjectURL(url);
     });
 
+    if (aiReportBtn) {
+      aiReportBtn.addEventListener("click", () => {
+        if (generateReportInput) generateReportInput.value = "true";
+        pendingReport = true;
+        if (form.requestSubmit) {
+          form.requestSubmit(runBtn);
+        } else {
+          runBtn.click();
+        }
+      });
+    }
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
+      const formData = new FormData(form);
+      const requestedReport = (formData.get("generate_report") || "").toString().toLowerCase() === "true";
+      pendingReport = requestedReport;
+      formData.set("generate_report", requestedReport ? "true" : "false");
+      if (generateReportInput) generateReportInput.value = "false"; // reset to avoid accidental reuse
+      clearAiReport();
       startProgress();
-      setStatus("Working...", "yellow");
+      setStatus(requestedReport ? "Working on AI report..." : "Working...", "yellow");
       runBtn.disabled = true;
       downloadLink.style.display = "none";
-      const formData = new FormData(form);
       let endpoint = `${API_BASE}/api/reconcile`;
       if (mode === "demo") {
         if (!demoLoaded) {
@@ -1476,12 +1528,21 @@
         renderStatusTable(summary.status_counts);
         renderIssues(summary.issues, summary.data_quality_flags, summary.mapping_issue_summary || []);
         renderFilters();
-        renderAnalysis(summary);
-        if (data.download_url) {
-          downloadLink.href = `${API_BASE}${data.download_url}`;
-          downloadLink.style.display = "inline-block";
-          downloadLink.textContent = "Download Excel";
-        }
+          renderAnalysis(summary);
+          if (data.download_url) {
+            downloadLink.href = `${API_BASE}${data.download_url}`;
+            downloadLink.style.display = "inline-block";
+            downloadLink.textContent = "Download Excel";
+          }
+          if (requestedReport) {
+            if (data.report_markdown) {
+              showAiReport(data.report_markdown, null);
+            } else if (data.report_error) {
+              showAiReport("", data.report_error);
+            } else {
+              showAiReport("", "No AI report was returned.");
+            }
+          }
         downloadJsonBtn.style.display = latestAnalysisJson ? "inline-flex" : "none";
         setStatus("Complete", "green");
       } catch (err) {
@@ -1491,6 +1552,7 @@
       } finally {
         runBtn.disabled = false;
         stopProgress();
+        pendingReport = false;
       }
     });
   </script>
