@@ -142,7 +142,7 @@ def build_openai_report(result: ReconResult, model: str = "gpt-4o-mini") -> str:
 
     overview = result.overview
     prompt = f"""
-You are a finance controller. Write a concise client-facing reconciliation summary based on the provided numbers.
+You are a finance controller. Write a detailed client-facing reconciliation narrative based on the provided numbers. Target roughly 500–750 words so it feels substantive.
 
 Key metrics:
 - Total rows: {overview.get('total_rows')}
@@ -169,17 +169,25 @@ Mismatched pairs (top 10 by amount diff):
 Missing mappings by source (top 10):
 {missing_table}
 
-Write in Markdown with sections: Overview, Highlights (bulleted), Exceptions (bulleted), Missing Mapping, Next Steps (3-5 bullets). Keep it under 220 words and avoid restating the raw tables verbatim—reference patterns and magnitudes instead.
+Write in Markdown with clear headings and short bullet lists. Required sections:
+- Overview: 2–3 sentences with overall health and tolerances.
+- Mix & trends: bullets on status mix, notable shifts or concentrations (reference counts and magnitude, not whole tables).
+- Key drivers: bullets for top GL accounts and Source accounts driving exceptions, and the dominant mismatch reasons (amount vs date vs mapping).
+- Exceptions: bullets summarizing biggest mismatches, including at least one doc/ref example with amount and days difference if available.
+- Mapping & missing: bullets on mapping issues and missing mappings by source (counts and any clear pattern).
+- Next steps: 4–6 concise action bullets tailored to the data quality issues observed.
+
+Keep it factual; do not paste the raw tables; summarize patterns and size. Avoid line-leading hashes inside bullets; use proper headings and bullets.
 """
     try:
         completion = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You write short, precise finance reconciliation summaries. Use Markdown headings and bullets."},
+                {"role": "system", "content": "You write detailed but concise finance reconciliation summaries. Use Markdown headings and bullets; avoid code blocks."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.3,
-            max_tokens=400,
+            max_tokens=1400,
         )
         return completion.choices[0].message.content.strip()
     except OpenAIError as exc:  # noqa: BLE001

@@ -520,11 +520,6 @@
             <div class="value" id="kpi-unmatched-b">-</div>
           </div>
         </div>
-        <div id="ai-report-card" class="table-card" style="display:none; margin-top:12px;">
-          <div class="section-title"><span></span>AI report</div>
-          <div id="ai-report-error" class="muted" style="color:#ef4444; display:none; margin-bottom:6px;"></div>
-          <pre id="ai-report-box" style="white-space:pre-wrap; background:var(--panel); color:var(--text); padding:12px; border:1px solid var(--stroke); border-radius:10px; max-height:220px; overflow:auto;"></pre>
-        </div>
         <div class="divider"></div>
         <div>
           <div class="section-title"><span></span>Status breakdown</div>
@@ -556,6 +551,7 @@
           <button type="button" data-tab="trends-tab">Yearly</button>
           <button type="button" data-tab="yearly-tab">Trends</button>
           <button type="button" data-tab="variances-tab">Variances</button>
+          <button type="button" data-tab="ai-tab">AI report</button>
         </div>
       </div>
       <div class="divider"></div>
@@ -669,15 +665,14 @@
       </div>
     </section>
 
-    <!-- AI Narrative Report hidden per request -->
-    <!--
-    <section class="card" style="margin-top:18px;">
+    <section class="card tab-panel" id="ai-tab" style="margin-top:18px; display:none;">
       <div class="section-title"><span></span>AI Narrative Report</div>
-      <div class="tagline">Generated on demand when the AI toggle is enabled.</div>
-      <div class="report-card" id="report-output">No report yet.</div>
-      <div class="issues" id="report-error"></div>
+      <div class="tagline">Generated on demand with the OpenAI API. Run “with AI report” to refresh.</div>
+      <div id="ai-report-panel" class="table-card" style="margin-top:10px;">
+        <div id="ai-report-error" class="muted" style="color:#ef4444; display:none; margin-bottom:6px;"></div>
+        <div id="ai-report-html" style="background:var(--panel); color:var(--text); padding:12px; border:1px solid var(--stroke); border-radius:10px; min-height:120px;"></div>
+      </div>
     </section>
-    -->
   </main>
   <script>
     const API_BASE = window.location.origin.startsWith("file:")
@@ -691,8 +686,8 @@
     const statusChip = document.getElementById("status-chip");
     const downloadLink = document.getElementById("download-link");
     const downloadJsonBtn = document.getElementById("download-json");
-    const aiReportCard = document.getElementById("ai-report-card");
-    const aiReportBox = document.getElementById("ai-report-box");
+    const aiReportPanel = document.getElementById("ai-report-panel");
+    const aiReportHtml = document.getElementById("ai-report-html");
     const aiReportError = document.getElementById("ai-report-error");
     const issuesList = document.getElementById("issues-list");
     const modeUploadBtn = document.getElementById("mode-upload");
@@ -747,25 +742,74 @@
       statusChip.className = `chip ${color}`;
     }
 
+    function escapeHtml(str) {
+      return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function inlineFmt(text) {
+      let t = escapeHtml(text);
+      t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      t = t.replace(/\*(.+?)\*/g, "<em>$1</em>");
+      t = t.replace(/`(.+?)`/g, "<code>$1</code>");
+      return t;
+    }
+
+    function markdownToHtml(md) {
+      const lines = (md || "").split(/\r?\n/);
+      const out = [];
+      let inList = false;
+      lines.forEach(line => {
+        if (/^\s*[-*]\s+/.test(line)) {
+          if (!inList) {
+            out.push("<ul>");
+            inList = true;
+          }
+          const item = line.replace(/^\s*[-*]\s+/, "");
+          out.push(`<li>${inlineFmt(item)}</li>`);
+        } else {
+          if (inList) {
+            out.push("</ul>");
+            inList = false;
+          }
+          if (/^###\s+/.test(line)) {
+            out.push(`<h3>${inlineFmt(line.replace(/^###\s+/, ""))}</h3>`);
+          } else if (/^##\s+/.test(line)) {
+            out.push(`<h2>${inlineFmt(line.replace(/^##\s+/, ""))}</h2>`);
+          } else if (/^#\s+/.test(line)) {
+            out.push(`<h1>${inlineFmt(line.replace(/^#\s+/, ""))}</h1>`);
+          } else if (line.trim() === "") {
+            out.push("");
+          } else {
+            out.push(`<p>${inlineFmt(line.trim())}</p>`);
+          }
+        }
+      });
+      if (inList) out.push("</ul>");
+      const html = out.join("\n").trim();
+      return html || "<p class=\"muted\">No AI report yet. Run with AI report to generate one.</p>";
+    }
+
     function clearAiReport() {
-      if (aiReportCard) aiReportCard.style.display = "none";
-      if (aiReportBox) aiReportBox.textContent = "";
+      if (aiReportPanel) aiReportPanel.style.display = "block";
       if (aiReportError) {
         aiReportError.textContent = "";
         aiReportError.style.display = "none";
       }
+      if (aiReportHtml) {
+        aiReportHtml.innerHTML = "<p class=\"muted\">No AI report yet. Run with AI report to generate one.</p>";
+      }
     }
 
     function showAiReport(markdown, errorText) {
-      if (!aiReportCard) return;
-      aiReportCard.style.display = "block";
+      if (!aiReportPanel) return;
+      aiReportPanel.style.display = "block";
       if (errorText) {
         aiReportError.textContent = errorText;
         aiReportError.style.display = "block";
       } else {
         aiReportError.style.display = "none";
       }
-      aiReportBox.textContent = markdown || "No report returned.";
+      aiReportHtml.innerHTML = markdownToHtml(markdown || "");
     }
 
     function updateKPIs(overview) {
@@ -966,6 +1010,7 @@
     const filters = { status: null, gl: null, src: null };
     let progressTimer = null;
     let pendingReport = false;
+    clearAiReport();
 
     // Consistent status ordering and colors across charts
     const STATUS_ORDER = [
